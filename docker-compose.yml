@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  deleter:
+    container_name: deleter-raifer
+    image: "deleter:latest"
+    build: .
+    volumes:
+      - ./logs:/logs
+      - ./config:/config
+    command: python3 deleter.py
+    environment:
+      - TZ="Europe/Moscow"
