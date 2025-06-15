@@ -31,10 +31,11 @@ session_name = os.getenv('name')  # имя файла сессии
 client = TelegramClient('./session/' + session_name, api_id, api_hash)
 
 async def main():
+    channelId = input("[i] Input target channel id/username\n> ")
     async with client:
         # Получение информации о пользователе
-        # await commands.get_channel_from_user(client, 'me')
-        allChannels = await commands.channelScanRecursion(client, 'pzgynrmo')
+        # await commands.get_channel_from_user(client, 'dmfrpro', 11)
+        allChannels = await commands.channelScanRecursion(client, channelId)
         visuals.visualize_channel_record(allChannels)
         visuals.visualize_subchannels_tree(allChannels)
 

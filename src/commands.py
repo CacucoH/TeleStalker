@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 import asyncio
 from tqdm.asyncio import tqdm
@@ -8,7 +9,7 @@ from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.functions.messages import GetMessagesRequest
 from telethon.tl.functions.channels import GetFullChannelRequest
-from telethon.tl.types import ChatFull, PeerUser, Message, User
+from telethon.tl.types import UserFull, PeerUser, Message, User, ChatFull
 
 from src.classes.channel import ChannelRecord
 
@@ -23,11 +24,17 @@ async def get_channel_from_user(client: TelegramClient, username: str, current_c
         Получает ID канала, связанного с пользователем.
     """
     try:
-        await asyncio.sleep(0.5)  # Задержка для избежания превышения лимитов API
+        await asyncio.sleep(0.2)  # Задержка для избежания превышения лимитов API
         user = await client.get_entity(username)
-        full_user = await client(GetFullUserRequest(user))
+        full_user: UserFull = await client(GetFullUserRequest(user))
         
         personal_channel_id = getattr(full_user.full_user, 'personal_channel_id', None)
+        bio = getattr(full_user.full_user, 'about')
+
+        channel_in_bio = re.match(r'(https:\/\/)?t\.me\/[a-z0-9]+', bio)
+        if channel_in_bio:
+            tqdm.write(f"[!!!] У пользователя @{username} канал в коментах. ID: {channel_in_bio}")
+
         if personal_channel_id == current_channel_id:
             tqdm.write(f"[i] Пользователь @{username} уже связан с каналом ID: {current_channel_id}")
             return None
@@ -48,13 +55,14 @@ async def get_channel_users(client: TelegramClient, channel_username: str) -> Ch
         tqdm.write(f"--- Получаем информацию о канале {channel.title} (@{channel.username}) ---")
 
         # Получаем полную информацию о канале (ищем привязанный чат)
-        full_channel = await client(GetFullChannelRequest(channel))
+        full_channel: ChatFull = await client(GetFullChannelRequest(channel))
         participants = full_channel.full_chat.participants_count
         approx_total_messages = full_channel.full_chat.read_inbox_max_id
 
         channelInstance = ChannelRecord(
             channelId=channel.id,
-            channelName=channel.title,
+            channelUsername=channel.username,
+            channelTitle=channel.title,
             creatorName=channel.username or 'Unknown',
             totalParticipants=participants,
             totalMessages=approx_total_messages
@@ -62,12 +70,12 @@ async def get_channel_users(client: TelegramClient, channel_username: str) -> Ch
 
         if participants > MAX_PARTICIPANTS:
             tqdm.write(f"[!] Слишком много участников в канале @{channel_username} ({participants} > {MAX_PARTICIPANTS}).")
-            return
+            return channelInstance
         
         linked_chat: int = full_channel.full_chat.linked_chat_id
         if not linked_chat:
             tqdm.write(f"[!] У канала @{channel_username} нет привязанного чата с комментариями.")
-            return
+            return channelInstance
     
         tqdm.write(f"[i] Получен ID чата с комментариями: {linked_chat}")
 
@@ -75,7 +83,6 @@ async def get_channel_users(client: TelegramClient, channel_username: str) -> Ch
         async for message in client.iter_messages(linked_chat, wait_time=FLOOD_WAIT):
             sender: User = await message.get_sender()
             if not sender or not isinstance(message.from_id, PeerUser):
-                # Пропускаем сообщения от не-пользователей (например, от ботов или каналов)
                 continue
 
             user_id: int = sender.id
@@ -103,9 +110,9 @@ async def channelScanRecursion(client: TelegramClient, channelId: str | int, cur
         return
 
     channelInstance = await get_channel_users(client, channelId)
-    if not channelInstance.subchannelsList:
+    if not channelInstance or not channelInstance.subchannelsList:
         tqdm.write(f"[i] No subchannels for @{channelInstance.channelName} =(((")
-        return
+        return channelInstance
     
     for username, subchannelId in channelInstance.subchannelsList.items():
         subtree = await channelScanRecursion(client, subchannelId, currentDepth=currentDepth + 1)
@@ -113,4 +120,3 @@ async def channelScanRecursion(client: TelegramClient, channelId: str | int, cur
             await channelInstance.addSubchannel(username, subtree)
     
     return channelInstance
-    

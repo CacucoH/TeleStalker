@@ -1,6 +1,12 @@
 dotenv==0.9.9
+markdown-it-py==3.0.0
+mdurl==0.1.2
 pyaes==1.6.1
-Pyrogram==2.0.106
-PySocks==1.7.1
+pyasn1==0.6.1
+Pygments==2.19.1
 python-dotenv==1.1.0
+rich==14.0.0
+rsa==4.9.1
+Telethon==1.40.0
+tqdm==4.67.1
 uvloop==0.21.0
