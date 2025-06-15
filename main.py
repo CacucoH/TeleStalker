@@ -1,40 +1,42 @@
 import os
-import uvloop
-import pyrogram as p
 import logging
+import uvloop
 from dotenv import load_dotenv
-
-from telethon.sync import TelegramClient
+from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.types import InputUser
+from telethon.sessions import StringSession
 
-
-
-from src import commands, router
-
-
-logger = logging.getLogger('pyrogram').setLevel(logging.ERROR)
-logging.basicConfig(
-        level=logging.DEBUG, 
-        format="[%(levelname)s] - %(asctime)s - %(message)s",
-        datefmt="%Y/%m/%d %H:%M:%S",
-        filename=f"./logs/log.log",
-        filemode="a"
-    )
-
-uvloop.install()
+# Загрузка переменных окружения
 load_dotenv('./config/.env')
 
-app = p.Client(
-    name=os.getenv('name'),
-    api_id=os.getenv('api_id'),
-    api_hash=os.getenv('api_hash'),
-    workdir=r"./session"
+from src import commands 
+from src import visuals
+
+# Настройка логов
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(levelname)s] - %(asctime)s - %(message)s",
+    datefmt="%Y/%m/%d %H:%M:%S",
+    filename=f"./logs/log.log",
+    filemode="a"
 )
 
-async def main():
-    async with app:
-        # await commands.getChannelUsers(app, chat_id='innochapay')
-        print(await app.get_users('asya_vespa'))
+# Оптимизация asyncio
+uvloop.install()
 
-app.run(main())
+api_id = int(os.getenv('api_id'))
+api_hash = os.getenv('api_hash')
+session_name = os.getenv('name')  # имя файла сессии
+
+client = TelegramClient('./session/' + session_name, api_id, api_hash)
+
+async def main():
+    async with client:
+        # Получение информации о пользователе
+        # await commands.get_channel_from_user(client, 'me')
+        allChannels = await commands.channelScanRecursion(client, 'pzgynrmo')
+        visuals.visualize_channel_record(allChannels)
+        visuals.visualize_subchannels_tree(allChannels)
+
+
+client.loop.run_until_complete(main())
