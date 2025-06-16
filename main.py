@@ -18,7 +18,7 @@ logging.basicConfig(
     format="[%(levelname)s] - %(asctime)s - %(message)s",
     datefmt="%Y/%m/%d %H:%M:%S",
     filename=f"./logs/log.log",
-    filemode="a"
+    filemode="w"
 )
 
 # Оптимизация asyncio
@@ -38,6 +38,5 @@ async def main():
         allChannels = await commands.channelScanRecursion(client, channelId)
         visuals.visualize_channel_record(allChannels)
         visuals.visualize_subchannels_tree(allChannels)
-
 
 client.loop.run_until_complete(main())
