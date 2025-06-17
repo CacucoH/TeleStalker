@@ -33,15 +33,18 @@ def createSubchannelsTree(record: ChannelRecord, root: bool = True) -> Tree:
     prefix = "🌐" if root else "📎"
     
     tree = Tree(f"{prefix} [bold]{record.channelTitle}[/] ({record.channelUsername}) by @{record.creatorName} ({record.usersFound}/{record.totalParticipants} пользователей)")
-    
     user: UserRecord
     for user, status in record.admins.items():
         phoneNum = '| [bold red]' + user.phone + '[/]' if user.phone else ''
-        tree.add(f"👤 {user.id} | @{user.username} | {user.full_name} {phoneNum} | {status}")
+        user_branch = tree.add(f"👤 {user.id} | @{user.username} | {user.full_name} {phoneNum} | {status}")
+        for link, comment in user.capturedMessages.items():
+            user_branch.add(f"💬 [blue]{link}[/] | {comment}")
 
-    for user in record.users:
+    for user in record.users.values():
         phoneNum = '| [bold red]' + user.phone + '[/]' if user.phone else ''
-        tree.add(f"👤 {user.id} | @{user.username} | {user.full_name} {phoneNum}")
+        user_branch = tree.add(f"👤 {user.id} | @{user.username} | {user.full_name} {phoneNum}")
+        for link, comment in user.capturedMessages.items():
+            user_branch.add(f"💬 [blue]{link}[/] | {comment}")
     
     for _, subchannel in record.subchannels.items():
         tree.add(createSubchannelsTree(subchannel, root=False))
@@ -60,3 +63,4 @@ def writeOutputToFile(filename: str, data) -> bool:
     filepath = os.path.join(REPORT_DIR, filename)
     with open(filepath, 'a') as targetFile:
         rprint(data, file=targetFile)
+

@@ -14,6 +14,7 @@ class UserRecord:
         self.emoji_status = getattr(user.emoji_status, 'document_id', None)
         self.phone = user.phone
         self.adminInChannel = set()
+        self.capturedMessages = {}
         
     def __repr__(self):
         return f"<UserRecord {self.full_name} @{self.username} ({self.status})>"

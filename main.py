@@ -1,6 +1,8 @@
 import os
 import logging
 import uvloop
+import argparse
+
 from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
@@ -26,16 +28,30 @@ uvloop.install()
 
 api_id = int(os.getenv('api_id'))
 api_hash = os.getenv('api_hash')
-session_name = os.getenv('name')  # имя файла сессии
+session_name = os.getenv('name')
 
 client = TelegramClient('./session/' + session_name, api_id, api_hash)
 
 async def main():
-    channelId = input("[i] Input target channel id/username\n> ")
+    parser = argparse.ArgumentParser(
+                    prog='teleStalker',
+                    description='Searches for users in channels and their subchannels recursively. Makes OSINT process much easier and saves your time',
+                    epilog='')
+    parser.add_argument('-c', '--channel', required=True, help="Target channel ID/Username (w/o \"@\" symbol)")
+    parser.add_argument('-u', '--users', help="If you want, you may specify username, usernames or user IDs set to search for comments (space separated, w/o \"@\" symbol)", nargs="+")
+    parser.add_argument('-r', '--recursion-depth', help="Specify how large our recursion tree would be. Optimal values are 2-3, to scan only channel you specified set this 1. By default value is 1")
+    args = parser.parse_args()
+
+    if not args.channel:
+        parser.print_help()
+
+    recursionDepth = args.recursion_depth
+    if recursionDepth:
+        os.environ['MAX_DEPTH'] = recursionDepth
+
     async with client:
-        # Получение информации о пользователе
-        # await commands.get_channel_from_user(client, 'dmfrpro', 11)
-        allChannels = await commands.channelScanRecursion(client, channelId)
+        print(f"> Started TeleSlaker")
+        allChannels = await commands.channelScanRecursion(client, args.channel, trackUsers=set(args.users))
         visuals.visualize_channel_record(allChannels)
         visuals.visualize_subchannels_tree(allChannels)
 

@@ -25,7 +25,7 @@ API_MESSAGES_PER_REQUEST = int(os.getenv('API_MESSAGES_PER_REQUEST'))
 ADMIN_MAX_PROBING = int(os.getenv('ADMIN_MAX_PROBING'))
 
 
-async def get_channel_from_user(client: TelegramClient, username: str, current_channel_id: int) -> int | None:
+async def get_channel_from_user(client: TelegramClient, username: str, current_channel_id: int) -> int | str | None:
     """
         Получает ID канала, связанного с пользователем.
     """
@@ -80,20 +80,29 @@ async def getChatUsers(client: TelegramClient, channelId: str | int) -> ChannelR
         return channelInstance
 
 
-async def getUsersByComments(client: TelegramClient, channelId: int | str) -> list[UserRecord]:
+async def getUsersByComments(client: TelegramClient, channelId: int | str, targetUsers: set[str]) -> list[UserRecord]:
     channelInstance = None
     try:
         channelInstance = await getChannelInfo(client, channelId)
-        if not channelInstance.linkedChat:
+        if not channelInstance.linkedChat:  
             tqdm.write(f"[!] У канала @{channelId} нет привязанного чата с комментариями.")
             return channelInstance
         
         message: Message
-        async for message in client.iter_messages(channelInstance.linkedChat, wait_time=FLOOD_WAIT):
+        async for message in tqdm(client.iter_messages(channelInstance.linkedChat, wait_time=FLOOD_WAIT), total=channelInstance.totalMessages, desc="Scanning channel messages"):
             if not message.sender:
                 continue
             
             senderId = message.sender.id
+            senderUsername = message.sender.username
+            # If user asked to track some channel subs
+            # TODO: if user is not present comment wouldnt be saved
+            # На самом деле мне слшиком похцй это делать если хотите киньте PullReq :)
+            if senderUsername in targetUsers:
+                user: UserRecord = await channelInstance.getUser(senderId)
+                if user:
+                    user.capturedMessages[f"https://t.me/{channelInstance.channelUsername}/{message.reply_to.reply_to_top_id}/{message.id}"] = f"{message.text[:100]} {'...' if len(message.text) > 100 else ''}"
+
             # Check if channel sent message
             if await channelInstance.checkUserPresence(senderId) or \
                 senderId == channelInstance.channelId:
@@ -152,7 +161,8 @@ async def getChannelInfo(client: TelegramClient, channelId: str | int) -> Channe
     return channelInstance
 
 
-async def channelScanRecursion(client: TelegramClient, channelId: str | int, currentDepth: int = 1, creatorId: int | None = None) -> ChannelRecord:
+async def channelScanRecursion(client: TelegramClient, channelId: str | int, currentDepth: int = 1,
+                               creatorId: int | None = None, trackUsers: set[str] = []) -> ChannelRecord:
     """
         Рекурсивно сканирует подканалы и добавляет их пользователей в основной канал.
     """
@@ -160,7 +170,7 @@ async def channelScanRecursion(client: TelegramClient, channelId: str | int, cur
         tqdm.write(f"[i] Достигнут максимальный уровень рекурсии: {currentDepth} > {MAX_DEPTH}")
         return
 
-    channelInstance: ChannelRecord = await getUsersByComments(client, channelId)
+    channelInstance: ChannelRecord = await getUsersByComments(client, channelId, trackUsers)
     if creatorId:
         channelInstance.creatorName = creatorId
 
@@ -197,24 +207,24 @@ async def scanForAdmins(client: TelegramClient, channelId: str | int) -> list[st
     counter = 1
 
     tqdm.write("[i] Probing channel for admin signatures")
-    async for message in client.iter_messages(channelId, wait_time=FLOOD_WAIT, limit=API_MESSAGES_PER_REQUEST*ADMIN_MAX_PROBING):
+    async for message in tqdm(client.iter_messages(channelId, wait_time=FLOOD_WAIT, limit=API_MESSAGES_PER_REQUEST*ADMIN_MAX_PROBING), total=API_MESSAGES_PER_REQUEST*ADMIN_MAX_PROBING, desc="Searching for admins"):
         adminName = message.post_author
         if adminName:
             admins.add(adminName)
             adminFound = True
 
         if not adminFound and counter > API_MESSAGES_PER_REQUEST:
+            tqdm.write("[-] Seems like admin signatures disabled in this channel")
             break
 
-    if not admins:
-        tqdm.write("[-] Seems like admin signatures disabled in this channel")
-        
+    if admins:
+        tqdm.write(f"[+] Found {len(admins)} admins for this chat")
     return admins
 
 
-async def matchAdminsByNames(channelUsers: list[UserRecord], potentialAdmins: list[str]) -> dict[UserRecord, str]:
+async def matchAdminsByNames(channelUsers: dict[int, UserRecord], potentialAdmins: list[str]) -> dict[UserRecord, str]:
     foundAdmins = {}
-    for user in channelUsers:
+    for user in channelUsers.values():
         userName = user.full_name
         matchedCounter = 0
         tempArray = []

@@ -19,13 +19,17 @@ class ChannelRecord:
         self.usersFound = 0
         self.subchannelsList = {}
         self.subchannels = {}
-        self.users = set()
+        self.users = {}
         self.admins = {}
 
     async def addUser(self, userId: int | str, user) -> None:
         if not await self.checkUserPresence(userId):
-            self.users.add(user)
+            self.users[userId] = user
             self.usersFound += 1
+
+    async def getUser(self, userId: int | str):
+        if await self.checkUserPresence(userId):
+            return self.users[userId]
     
     async def checkUserPresence(self, userId: int | str) -> bool:
         if userId in self.users:
