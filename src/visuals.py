@@ -32,7 +32,7 @@ def visualize_channel_record(record: ChannelRecord):
 def createSubchannelsTree(record: ChannelRecord, root: bool = True) -> Tree:
     prefix = "🌐" if root else "📎"
     
-    tree = Tree(f"{prefix} [bold]{record.channelTitle}[/] ({record.channelUsername}) by @{record.creatorName} ({record.usersFound}/{record.totalParticipants} пользователей)")
+    tree = Tree(f"{prefix} [bold]{record.channelTitle}[/] ({record.channelUsername}) by [green]@{record.creatorName}[/] ({record.usersFound}/{record.totalParticipants} пользователей)")
     user: UserRecord
     for user, status in record.admins.items():
         phoneNum = '| [bold red]' + user.phone + '[/]' if user.phone else ''
