@@ -1,7 +1,7 @@
 # 🕵️‍♂️ TeleStalker
 
-<details open>
-<summary><strong>🇷🇺 Русский</strong></summary>
+[🇺🇸 English README](./README-EN.md)
+
 ## 📌 Описание
 
 **TeleStalker** — это инструмент автоматического сбора данных  из открытых источников (OSINT) в Telegram. Программа рекурсивно парсит указанный канал и его дочерние чаты (связанные группы/комментарии), чтобы:
@@ -32,6 +32,23 @@ cd teleStalker
 pip3 install -r requirements.txt
 ```
 
+## ⚙️ Конфигурация
+
+Перед запуском необходимо указать свои Telegram API-ключи:
+
+1. Перейдите на [https://my.telegram.org](https://my.telegram.org)
+2. Авторизуйтесь и создайте приложение
+3. Скопируйте `api_id` и `api_hash`
+4. Укажите их в файле `.env`, который находится в папке `./config/`:
+
+```env
+API_ID=your_api_id
+API_HASH=your_api_hash
+name = your_app_name
+```
+
+🚨 Без этого программа работать не будет.
+
 ## 🛠️ Использование
 ```bash
 python3 main.py -c <канал> [опции]
@@ -58,62 +75,3 @@ A wait of 82696 seconds is required (caused by ResolveUsernameRequest)
 
 >[!important]
 >⚠️ Попытки обойти это ограничение или запускать скрипт во время блокировки API **могут привести к блокировке вашего аккаунта**. Вы действуете на свой страх и риск.
-
-</details>
-
-<details> <summary><strong>🇬🇧 English</strong></summary>
-## 📌 Description
-
-**TeleStalker** is an automated Telegram OSINT tool. It recursively parses a target channel and its connected chats to:
-
-- Find users;
-- Search for all-time comments by specific users;
-- Attempt to reveal sensitive data (e.g., **phone numbers**) if possible.
-
-⚠️ This tool is intended **for educational and research purposes only**. The author takes no responsibility for misuse.
-
-## 🚀 Installation
-
-### 🐧 Linux
-```bash
-git clone https://github.com/CacucoH/teleStalker.git
-cd teleStalker
-chmod +x install.sh
-./install.sh
-```
-
-### 🪟 Windows
-`.exe` version coming soon, for now, run from source::
-```cmd
-git clone https://github.com/CacucoH/teleStalker.git
-cd teleStalker
-pip3 install -r requirements.txt
-```
-
-## 🛠️ Usage
-```bash
-python3 teleStalker.py -c <channel> [options]
-```
-#### Arguments:
-
-| Argument                  | Description                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------------- |
-| `-c`, `--channel`         | **Required**. Target channel ID or username (without `@`)                                   |
-| `-u`, `--users`           | Usernames or IDs to search comments for (space-separated, no `@`)                           |
-| `-r`, `--recursion-depth` | In-channel search recursion depth (default: `1`). Recommended: `2-3` to observe subchannels |
-| `-e`, `--exclude`         | Usernames to exclude from scan (space-separated, no `@`)                                    |
-
-## ⛔ Telegram API Limits
-
-Telegram allows **only 200 API requests per day**.
-- This tool is **optimized** to send as few requests as possible.
-- If you see an error like:
-```
-A wait of 82696 seconds is required (caused by ResolveUsernameRequest)
-```
-It means the API quota is exhausted. You must **wait the specified time** to continue
-
->[!important]
->⚠️ Improper use (e.g., running while quota is blocked) **may result in account freeze or ban**. Use at your own risk.
-
-</details>
