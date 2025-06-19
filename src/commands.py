@@ -55,6 +55,7 @@ async def get_channel_from_user(client: TelegramClient, username: str, current_c
         
 
     except Exception as e:
+        tqdm.write(f"[!] Ошибка при получении канала у пользователя @{username}: {e}")
         logger.error(f"Ошибка при получении канала у пользователя @{username}: {e}")
 
 
@@ -79,6 +80,7 @@ async def getChatUsers(client: TelegramClient, channelId: str | int) -> ChannelR
 
     except Exception as e:
         tqdm.write(f"Ошибка при получении пользователей из комментариев канала @{channelId}: {e}")
+        logging.error(e)
 
     finally:
         return channelInstance
@@ -157,6 +159,7 @@ async def getUsersByComments(client: TelegramClient, channelId: int | str, targe
 
     except Exception as e:
         tqdm.write(f"Ошибка при получении пользователей из комментариев канала @{channelId}: {e}")
+        logging.error(e)
 
     finally:
         return channelInstance
