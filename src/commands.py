@@ -84,7 +84,8 @@ async def getChatUsers(client: TelegramClient, channelId: str | int) -> ChannelR
         return channelInstance
 
 
-async def getUsersByComments(client: TelegramClient, channelId: int | str, targetUsers: set[str]) -> list[UserRecord]:
+async def getUsersByComments(client: TelegramClient, channelId: int | str, targetUsers: set[str],
+                             banned_usernames: set[str] = []) -> list[UserRecord]:
     channelInstance = None
     try:
         channelInstance = await getChannelInfo(client, channelId)
@@ -99,10 +100,10 @@ async def getUsersByComments(client: TelegramClient, channelId: int | str, targe
                 continue
             
             senderId = message.sender.id
-            senderUsername = message.sender.username
+            senderUsername: str = message.sender.username
             # Dont waste API calls on deleted users
             if not senderUsername:
-                tqdm.write(f"[!] User @{senderId} is deleted? Skipping anyway...")
+                logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
                 continue
 
             # If user asked to track some channel subs
@@ -117,6 +118,10 @@ async def getUsersByComments(client: TelegramClient, channelId: int | str, targe
                 if user:
                     msgDate = message.date.strftime('%Y-%m-%d %H:%M:%S')
                     user.capturedMessages[f"{msgDate} : https://t.me/{channelInstance.channelUsername}/{originalPostId}/?comment={message.id}"] = f"{message.text[:100]} {'...' if len(message.text) > 100 else ''}"
+
+            if senderUsername.lower() in banned_usernames:
+                logging.debug(f"[i] User @{senderUsername} and their (potential) channel is banned from scanning. Skipping...")
+                continue
 
             # Drain messages buffer if we met post from channel and continue
             if senderId == channelInstance.channelId:
@@ -193,7 +198,7 @@ async def channelScanRecursion(client: TelegramClient, channelId: str | int, cur
             tqdm.write(f"[i] Достигнут максимальный уровень рекурсии: {currentDepth} > {MAX_DEPTH}")
             return
 
-        channelInstance: ChannelRecord = await getUsersByComments(client, channelId, trackUsers)
+        channelInstance: ChannelRecord = await getUsersByComments(client, channelId, trackUsers, banned_usernames)
         if creatorId:
             channelInstance.creatorName = creatorId
 
@@ -204,13 +209,7 @@ async def channelScanRecursion(client: TelegramClient, channelId: str | int, cur
             tqdm.write(f"[i] No subchannels for @{channelInstance.channelTitle} =(((")
             return channelInstance
         
-        username: str
-        subchannelId: int | str
         for username, subchannelId in channelInstance.subchannelsList.items():
-            if username.lower() in banned_usernames:
-                tqdm.write(f"[i] User @{username} and their (potential) channel is banned from scanning. Skipping...")
-                continue
-
             subtree = await channelScanRecursion(client, subchannelId, currentDepth=currentDepth + 1, creatorId=username)
             if subtree:
                 channelInstance.addSubChannel(username, subtree)
