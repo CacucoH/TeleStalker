@@ -81,7 +81,8 @@ async def getUsersByComments(client: TelegramClient, channelObj: Channel, target
                 user: UserRecord = await channelInstance.getUser(senderId)
                 if user:
                     msgDate = message.date.strftime('%Y-%m-%d %H:%M:%S')
-                    user.capturedMessages[f"{msgDate} : https://t.me/{channelInstance.channelUsername}/{originalPostId}/?comment={message.id}"] = f"{message.text[:100]} {'...' if len(message.text) > 100 else ''}"
+                    text = message.text or '<Non-text object>'
+                    user.capturedMessages[f"{msgDate} : https://t.me/{channelInstance.channelUsername}/{originalPostId}/?comment={message.id}"] = f"{text[:100]} {'...' if len(text) > 100 else ''}"
 
             if senderUsername.lower() in banned_usernames:
                 logging.debug(f"[i] User @{senderUsername} and their (potential) channel is banned from scanning. Skipping...")
