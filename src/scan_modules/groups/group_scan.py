@@ -1,39 +1,35 @@
-import os
-import re
 import logging
-import asyncio
 from tqdm.asyncio import tqdm
 
 from telethon import TelegramClient
 from telethon.tl.functions.channels import GetFullChannelRequest, GetParticipantsRequest
-from telethon.tl.patched import Message
-from telethon.tl.types import ChatFull, Chat
+from telethon.tl.types import ChatFull, Chat, ChannelParticipantsAdmins, User
 
 from src.classes.group import GroupRecord
-from src.common.common_api_commands import MAX_PARTICIPANTS_GROUP, USER_SEARCH_LIMIT, API_MAX_USERS_REQUEST, FLOOD_WAIT
+from src.classes.user import UserRecord
+from src.common.common_api_commands import getUsersByComments, get_channel_from_user
+from src.common.common_api_commands import USER_SEARCH_LIMIT, API_MAX_USERS_REQUEST, MAX_USERS_SCAN_ITERATIONS
+from src.visuals import visualize_group_record
 
 
 async def getChatUsers(client: TelegramClient, chatObj: Chat, trackUsers: set[str] = [],
                        banned_usernames: set[str] = [], supergroup = False) -> GroupRecord | None:
-    groupInstance: GroupRecord = None
     try:
         groupInstance: GroupRecord = await getGroupInfo(client, chatObj, supergroup)
-        groupId = groupInstance.groupId
-        if groupInstance.totalMembers > MAX_PARTICIPANTS_GROUP:
-            tqdm.write(f"[!] Too many members in @{groupInstance.groupTitle} ({groupInstance.totalMembers} > {MAX_PARTICIPANTS_GROUP}). \
-You may set up max count in .env file (up to 10000)")
-            return groupInstance
+#         if groupInstance.totalMembers > MAX_PARTICIPANTS_GROUP:
+#             tqdm.write(f"[!] Too many members in @{groupInstance.title} > {MAX_PARTICIPANTS_GROUP}). \
+# You may set up max count in .env file (up to 10000)")
+#             return groupInstance
         
         if not groupInstance.isSupergroup:
-            users, admins = await scanUsersFromGroup(client, groupId, trackUsers, banned_usernames)   
+            groupInstance = await getUsersByComments(client, groupInstance, trackUsers, banned_usernames, participantsCount=groupInstance.totalParticipants)  
         else:
-            users, admins = await scanUsersFromSupergroup(client, groupId, trackUsers, banned_usernames)
+            groupInstance = await scanUsersFromSupergroup(client, groupInstance)
 
-        groupInstance.admins = admins
-        groupInstance.members = users
+        visualize_group_record(groupInstance)
     
     except Exception as e:
-        tqdm.write(f"Ошибка при получении пользователей из комментариев канала @{groupId}: {e}")
+        tqdm.write(f"Ошибка при получении пользователей из комментариев группы @{groupInstance.id}: {e}")
         logging.error(e)
     finally:
         return groupInstance
@@ -71,29 +67,32 @@ async def getGroupInfo(client: TelegramClient, chat: Chat, supergroup: bool) -> 
     return groupInstance
 
 
-async def scanUsersFromSupergroup(client: TelegramClient, groupId: str | int):
+async def scanUsersFromSupergroup(client: TelegramClient, groupInstance: GroupRecord):
     """
         ## Scans the specified supergroup for users.
         Returns a tuple of sets containing users and admins found in the group.
     """
-    users = set()
-    admins = set()
-    async for user in client.iter_participants(groupId, limit=USER_SEARCH_LIMIT, batch_size=API_MAX_USERS_REQUEST):
-        users.add(user)
-        if getattr(user, "admin_rights", None):
-            admins.add(user)
-
-    tqdm.write(f"[+] Users found: {len(users)}")
-    return users, admins
-
-
-async def scanUsersFromGroup(client: TelegramClient, groupId: str | int, 
-                             trackUsers: set[str] = [], banned_usernames: set[str] = []):
-    """
-        ## Scans the specified group for users.
-        Returns a tuple of sets containing users and admins found in the group.
-    """
-    message: Message
-    async for message in client.iter_messages(groupId, wait_time=FLOOD_WAIT):
-        if not message.sender:
+    groupId = groupInstance.id
+    sender: User
+    async for sender in client.iter_participants(groupId, limit=USER_SEARCH_LIMIT):
+        if sender.bot:
             continue
+        userR = UserRecord(sender)
+        userChannel = await get_channel_from_user(client, sender.username, groupId, sender)
+        if userChannel:
+            userR.adminInChannel.add(userChannel)
+            groupInstance.addSubChannel(sender.id, userChannel)
+        groupInstance.addUser(sender.id, userR)
+        
+    result = await client(GetParticipantsRequest(
+        channel=groupId,
+        filter=ChannelParticipantsAdmins(),
+        offset=0,
+        limit=API_MAX_USERS_REQUEST*MAX_USERS_SCAN_ITERATIONS,
+        hash=0
+    ))
+    for sender in result.users:
+        groupInstance.addAdmin(sender.id, UserRecord(sender))
+
+    tqdm.write(f"[+] Users found: {groupInstance.totalParticipants}")
+    return groupInstance

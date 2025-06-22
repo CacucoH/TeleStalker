@@ -62,7 +62,7 @@ async def main():
     async with client:
         print(f"> Started TeleSlaker")
         # allChannels = await commands.channelScanRecursion(client, args.channel, trackUsers=users, banned_usernames=exclude)
-        allChannels = await common_api_commands.startScanningProcess(client, 'https://t.me/+xJVu-NG6PkQxZDlh', trackUsers=[], banned_usernames=[])
+        # 
         
         if not allChannels:
             print(f"[!] No channels found or scanned")
