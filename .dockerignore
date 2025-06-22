@@ -1,6 +1,0 @@
-myenv/
-.dockerignore
-docker-compose.yml
-Dockerfile
-config/
-logs/
