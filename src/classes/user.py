@@ -1,9 +1,9 @@
-from src.classes import channel
 class UserRecord:
     def __init__(self, user):
         self.id = user.id
         self.username = user.username
-        self.full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+        self.first_name = user.first_name or ''
+        self.full_name = f"{self.first_name} {user.last_name or ''}".strip()
         self.is_bot = user.bot
         self.is_verified = user.verified
         self.is_premium = user.premium
