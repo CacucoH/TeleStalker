@@ -1,12 +1,11 @@
-from src.classes.user import UserRecord
-from src.classes.channel import ChannelRecord
+from src.classes.generic import BasicRecord
 
-class GroupRecord:
+class GroupRecord(BasicRecord):
     def __init__(
         self,
         group_id: int,
-        group_username: str | None,
         group_title: str,
+        group_username: str | None = None,
         creator_id: int | None = None,
         creator_name: str | None = None,
         total_members: int = -1,
@@ -14,37 +13,26 @@ class GroupRecord:
         is_supergroup: bool = False,
         description: str | None = None,
     ):
-        self.groupId = group_id
-        self.groupUsername = group_username
-        self.groupTitle = group_title
-        self.creatorId = creator_id
-        self.creatorUsername = creator_name
-        
-        self.totalMembers = total_members
-        self.totalMessages = total_messages
-        
-        self.isSupergroup = is_supergroup        
+        super().__init__(
+            id=group_id,
+            username=group_username,
+            title=group_title,
+            creatorUsername=creator_name,
+            totalParticipants=total_members,
+            totalMessages=total_messages,
+            linkedChat=None,  # Groups do not have linked chats like channels
+            isChannel=False,
+            isSupergroup=is_supergroup
+        )
+
         self.description = description
-        
-        self.members_found: int = 0
-        self.members: dict[int | str, UserRecord] = {}
-        self.admins: dict[int | str, UserRecord] = {}
-        self.subchannels: set[ChannelRecord] = set()
-    
+
+    @DeprecationWarning
     async def add_member(self, user_id: int | str, user_obj) -> None:
         if user_id not in self.members:
             self.members[user_id] = user_obj
             self.members_found += 1
     
+    @DeprecationWarning
     def add_admin(self, user_id: int | str, participant_obj) -> None:
         self.admins[user_id] = participant_obj
-    
-    def __repr__(self):
-        return (f"GroupRecord(title={self.group_title!r}, members={self.members_found}, "
-                f"admins={len(self.admins)}), subchannels={len(self.subchannels)})")
-    
-    def __hash__(self):
-        return hash(self.groupId)
-    
-    def __eq__(self, other):
-        return isinstance(other, GroupRecord) and self.groupId == other.groupId
