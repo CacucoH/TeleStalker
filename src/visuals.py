@@ -30,7 +30,7 @@ def visualize_channel_record(record: ChannelRecord):
     table.add_row("Subchannels", str(len(record.subchannels)))
 
     console.print(table)
-    writeOutputToFile(data=table, filename=record.title)
+    writeOutputToFile(data=table, filename=f"channel-{record.title}")
 
 
 def createSubchannelsTree(record: ChannelRecord, root: bool = True) -> Tree:
@@ -71,25 +71,34 @@ def visualize_group_record(group: GroupRecord):
     if group.description:
         group_table.add_row("Description:", group.description.strip())
 
-    console.print(Panel(group_table, title=title_text, expand=False, border_style="green", box=box.ROUNDED))
+    bTable = Panel(group_table, title=title_text, expand=False, border_style="green", box=box.ROUNDED)
+    console.print(bTable)
 
     tree = Tree(f"👥 Users")
     tree = output_user_info(tree, group.members.values(), group.id)
 
     console.print(tree)
 
+    groupType = "group"
+    if group.isSupergroup:
+        groupType = "supergroup"
+
+    writeOutputToFile(f"{groupType}-{group.title}", bTable)
+    writeOutputToFile(f"{groupType}-{group.title}", tree)
+
 
 def visualize_subchannels_tree(record: ChannelRecord):
     console = Console()
     tree = createSubchannelsTree(record)
     console.print(tree)
-    writeOutputToFile(data=tree, filename=record.title)
+    writeOutputToFile(data=tree, filename=f"channel-{record.title}")
 
 
 def writeOutputToFile(filename: str, data) -> bool:
     filepath = os.path.join(REPORT_DIR, filename)
     with open(filepath, 'a') as targetFile:
         rprint(data, file=targetFile)
+
 
 def output_user_info(tree: Tree, users: set[UserRecord], currentChatId: int) -> Tree:
     user: UserRecord

@@ -60,10 +60,9 @@ async def startScanningProcess(client: TelegramClient, chatId: str | int, trackU
         isSupergroup = isinstance(chatObj, Channel) and chatObj.megagroup
         groupInstance: GroupRecord = await getChatUsers(client, chatObj, trackUsers=trackUsers,
                                                         banned_usernames=banned_usernames, supergroup=isSupergroup)
-        subchannel: ChannelRecord
-        for subchannel in groupInstance.subchannels:
-            channelInstance: ChannelRecord = await channelScanRecursion(client, subchannel.id, channelInstance=subchannel,
-                                                         trackUsers=trackUsers, banned_usernames=banned_usernames)
+        for subchannelId in groupInstance.subchannels.values():
+            channelObj = await client.get_entity(subchannelId)
+            channelInstance: ChannelRecord = await channelScanRecursion(client, channelObj, trackUsers=trackUsers, banned_usernames=banned_usernames)
             totalChannels.append(channelInstance)
 
     return totalChannels

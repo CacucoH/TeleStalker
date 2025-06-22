@@ -25,14 +25,14 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
             logging.info(message)
             return
         
-        elif channelInstance.totalParticipants > MAX_PARTICIPANTS_CHANNEL:
+        if not channelInstance:
+            channelInstance: ChannelRecord = await getUsersFromChannelComments(client, channelObj, trackUsers, banned_usernames)
+
+        if channelInstance.totalParticipants > MAX_PARTICIPANTS_CHANNEL:
             message = f"[i] Skipping {channelInstance.title} ({channelInstance.usernamme}). Participants exceed maximum value {channelInstance.totalParticipants} > {MAX_DEPTH}"
             tqdm.write(message)
             logging.info(message)
             return channelInstance
-        
-        if not channelInstance:
-            channelInstance: ChannelRecord = await getUsersFromChannelComments(client, channelObj, trackUsers, banned_usernames)
         
         if creatorId:
             channelInstance.creatorName = creatorId
@@ -51,7 +51,6 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
             return channelInstance
         
         for username, subchannelId in channelInstance.subchannels.items():
-            
             subChanObj: Channel = await client.get_entity(subchannelId)
             subtree = await channelScanRecursion(client, subChanObj, currentDepth=currentDepth + 1, creatorId=username)
             if subtree:
