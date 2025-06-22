@@ -1,3 +1,5 @@
+from src.classes.user import UserRecord
+
 class BasicRecord:
     def __init__(
             self,
@@ -25,18 +27,19 @@ class BasicRecord:
         self.membersFound: int = 0
         self.adminsFound = 0
         self.subchannels = {}
-        self.members = {}
-        self.admins = {}
+        self.members: dict[int, UserRecord] = {}
+        self.admins: dict[int, UserRecord] = {}
 
     def addUser(self, userId: int | str, user) -> None:
         if not self.getUser(userId):
             self.members[userId] = user
             self.membersFound += 1
     
-    def addAdmin(self, userId: int | str, user) -> None:
-        if not self.getAdmin(userId):
-            self.admins[userId] = user
+    def addAdmin(self, admId, admin) -> None:
+        if not self.getAdmin(admId):
+            self.admins[admId] = admin
             self.adminsFound += 1
+            self.members[admId].adminInChannel.add(self.id)
 
     def getUser(self, userId: int | str):
         return self.members.get(userId)

@@ -11,25 +11,25 @@ from src.classes.user import UserRecord
 DIRECTORIES = ['logs', 'session', 'config', 'reports']
 
 
-async def matchAdminsByNames(channelUsers: dict[int, UserRecord], potentialAdmins: list[str]) -> dict[UserRecord, str]:
+async def matchAdminsByNames(channelUsers: dict[int, UserRecord], potentialAdmins: set[str]) -> dict[int, UserRecord]:
     foundAdmins = {}
-    for user in channelUsers.values():
-        userName = user.full_name
+    user: UserRecord
+    for adminName in potentialAdmins:
         matchedCounter = 0
-        tempArray = []
-        for name in potentialAdmins:
-            if name in userName:
+        tempArray: list[UserRecord] = []
+        for user in channelUsers.values():
+            userName: str = user.first_name
+            if adminName.lower() == userName.lower():
                 matchedCounter += 1
                 tempArray.append(user)
-        
-        if matchedCounter == 1:
-            foundAdmins[tempArray[0]] = '[bold red]admin[/]'
-        elif matchedCounter >= 2:
-            for i in tempArray:
-                foundAdmins[tempArray[i]] = '[bold orange]probably admin[/]'
-        elif matchedCounter > 5:
+
+        # Too much candidates
+        if matchedCounter > 2:
             continue
-    
+        
+        for adm in tempArray:
+            foundAdmins[adm.id] = adm
+                
     return foundAdmins
 
 
