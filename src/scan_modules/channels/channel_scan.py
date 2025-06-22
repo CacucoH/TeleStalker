@@ -20,8 +20,16 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
     try:
         channelId = channelObj.id
         if currentDepth > MAX_DEPTH:
-            tqdm.write(f"[i] Max recursion depth reached. Skipping {channelId}: {currentDepth} > {MAX_DEPTH}")
+            message = f"[i] Max recursion depth reached. Skipping {channelId}: {currentDepth} > {MAX_DEPTH}"
+            tqdm.write(message)
+            logging.info(message)
             return
+        
+        elif channelInstance.totalParticipants > MAX_PARTICIPANTS_CHANNEL:
+            message = f"[i] Skipping {channelInstance.title} ({channelInstance.usernamme}). Participants exceed maximum value {channelInstance.totalParticipants} > {MAX_DEPTH}"
+            tqdm.write(message)
+            logging.info(message)
+            return channelInstance
         
         if not channelInstance:
             channelInstance: ChannelRecord = await getUsersFromChannelComments(client, channelObj, trackUsers, banned_usernames)
@@ -29,8 +37,14 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
         if creatorId:
             channelInstance.creatorName = creatorId
 
-        # admins: set[str] = await scanForAdmins(client, channelId)
-        # channelInstance.admins = await matchAdminsByNames(channelInstance.members, admins)
+        admins: set[str] = await scanForAdmins(client, channelId)
+        channelInstance.admins = await matchAdminsByNames(channelInstance.members, admins)
+
+        # На первой итерации необходимо указать админов канала (если найдены)
+        if currentDepth == 1:
+            for ID in channelInstance.admins:
+                user = channelInstance.members.get(ID)
+                user.adminInChannel.add(channelId)
 
         if not channelInstance or not channelInstance.subchannels:
             tqdm.write(f"[i] No subchannels for @{channelInstance.title} =(((")

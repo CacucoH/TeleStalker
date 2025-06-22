@@ -103,7 +103,7 @@ async def get_channel_from_user(client: TelegramClient, username: str, current_c
         logger.error(f"Error while trying to get channel from user @{username}: {e}")
 
 
-async def scanForAdmins(client: TelegramClient, channelId: str | int) -> list[str]:
+async def scanForAdmins(client: TelegramClient, channelId: str | int) -> set[str]:
     """
         ## Scans the specified channel for admin signatures in messages
         Returns a list of admin usernames found in the channel
@@ -155,7 +155,7 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
                 continue
             
             sender = message.sender # Optimized
-            senderId = sender.id
+            senderId: int = sender.id
             senderUsername: str = sender.username
 
             # Dont waste API calls on deleted users
@@ -163,8 +163,8 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
                 logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
                 continue
 
-            if senderUsername.lower() in banned_usernames or \
-                senderId in banned_usernames:
+            if senderUsername in banned_usernames or \
+                str(senderId) in banned_usernames:
                 logging.debug(f"[i] User @{senderUsername} and their (potential) channel is banned from scanning. Skipping...")
                 continue
 
@@ -186,12 +186,11 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
                     originalPostId = message.forward.channel_post
                 continue
             
-            # Check if user is already present in channel
-            if chatRecord.getUser(senderId):
+            # Check if user is already present in channel or we deal not with user 
+            if chatRecord.getUser(senderId) or not isinstance(sender, User):
                 continue
 
             user = UserRecord(sender)
-            chatRecord.addUser(senderId, user)
 
             # Check if the user has a channel; If so add them
             subChannId = await get_channel_from_user(client, senderUsername, thisChatId)
@@ -199,6 +198,7 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
                 chatRecord.addSubChannel(senderUsername, subChannId)
                 user.adminInChannel.add(subChannId)
             
+            chatRecord.addUser(senderId, user)
             # elif isinstance(sender, Channel): # Admin found
             #     prefix = "[+] New admin found:"
             #     await channelInstance.addAdmin(sender.)
