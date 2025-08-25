@@ -73,5 +73,7 @@ async def main():
         for channel in allChannels:
             visuals.visualize_channel_record(channel)
             visuals.visualize_subchannels_tree(channel)
-
-client.loop.run_until_complete(main())
+try:
+    client.loop.run_until_complete(main())
+except KeyboardInterrupt:
+    print("[!] Interrupted by user")

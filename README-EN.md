@@ -37,13 +37,15 @@ Before running the program, you must provide your own Telegram API credentials:
 1. Go to https://my.telegram.org
 2. Log in and create an application
 3. Copy the `api_id` and `api_hash`
-4. Create or edit the `.env` file in the `./config/` directory:
+4. Create or edit the `example.env` file in the `./config/` directory:
 
 ```env
 API_ID=your_api_id
 API_HASH=your_api_hash
 name = your_app_name
 ```
+
+5. And finally rename `example.env` to `.env`
 
 🚨 The program will not work without valid API credentials.
 
