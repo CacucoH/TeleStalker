@@ -47,24 +47,25 @@ def defineArgs() -> argparse.Namespace:
     return args
 
 async def main():
-    args = defineArgs()
-    recursionDepth = args.recursion_depth
-    if recursionDepth:
-        os.environ['MAX_DEPTH'] = recursionDepth
+    # args = defineArgs()
+    # recursionDepth = args.recursion_depth
+    # if recursionDepth:
+    #     os.environ['MAX_DEPTH'] = recursionDepth
 
-    users = set()
-    exclude = set()
+    # users = set()
+    # exclude = set()
 
-    users = []
-    if args.users:
-        users = set(args.users)
+    # users = []
+    # if args.users:
+    #     users = set(args.users)
     
-    if args.exclude:
-        exclude = set(args.exclude)
+    # if args.exclude:
+    #     exclude = set(args.exclude)
 
     async with client:
         print(f"> Started TeleSlaker")
-        allChannels = await common_api_commands.startScanningProcess(client, args.chat, trackUsers=users, banned_usernames=exclude)
+        # allChannels = await common_api_commands.startScanningProcess(client, args.chat, trackUsers=users, banned_usernames=exclude)
+         
 
         if not allChannels:
             print(f"[!] No channels found or scanned")
@@ -73,5 +74,7 @@ async def main():
         for channel in allChannels:
             visuals.visualize_channel_record(channel)
             visuals.visualize_subchannels_tree(channel)
-
-client.loop.run_until_complete(main())
+try:
+    client.loop.run_until_complete(main())
+except KeyboardInterrupt:
+    print("[!] Interrupted by user")

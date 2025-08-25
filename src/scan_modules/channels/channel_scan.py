@@ -1,7 +1,7 @@
 import logging
 from tqdm.asyncio import tqdm
 
-from telethon import TelegramClient
+from telethon import TelegramClient, errors
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.patched import Message
 from telethon.tl.types import User, ChatFull
@@ -13,10 +13,14 @@ from src.common.common_api_commands import *
 
 
 async def channelScanRecursion(client: TelegramClient, channelObj: Channel, currentDepth: int = 1, channelInstance: ChannelRecord | None = None,
-                               creatorId: int | None = None, trackUsers: set[str] = [], banned_usernames: set[str] = []) -> ChannelRecord:
+                               creatorId: int | None = None, trackUsers: set[str] = [], banned_usernames: set[str] = [], isBlocked: bool = False) -> list[ChannelRecord, bool]:
     """
-        Рекурсивно сканирует подканалы и добавляет их пользователей в основной канал.
+        ## Рекурсивно сканирует подканалы и добавляет их пользователей в основной канал.
+        ### Returns:
+        - A Channel instance (ChannelRecord)
+        - Are you blocked by telegram API (bool)
     """
+    channelInstance: ChannelRecord = None
     try:
         channelId = channelObj.id
         if currentDepth > MAX_DEPTH:
@@ -47,19 +51,25 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
                 user.adminInChannel.add(channelId)
 
         if not channelInstance or not channelInstance.subchannels:
-            tqdm.write(f"[i] No subchannels for @{channelInstance.title} =(((")
+            tqdm.write(f"[i] No subchannels for @{channelInstance.usernamme} =(((")
             return channelInstance
         
         for username, subchannelId in channelInstance.subchannels.items():
             subChanObj: Channel = await client.get_entity(subchannelId)
-            subtree = await channelScanRecursion(client, subChanObj, currentDepth=currentDepth + 1, creatorId=username)
+            subtree, isBlocked = await channelScanRecursion(client, subChanObj, currentDepth=currentDepth + 1, creatorId=username)
             if subtree:
                 channelInstance.subchannels[username] = subtree
 
+            # Break cycle to prevent account ban
+            if isBlocked:
+                break
+
     except KeyboardInterrupt:
         tqdm.write("[!] Прерывание пользователем")
-    finally:
-        return channelInstance
+    except:
+        tqdm.write("[!] API запросы на сегодня исчерпаны")
+        return channelInstance, True
+    return channelInstance, isBlocked
 
 
 async def getUsersFromChannelComments(client: TelegramClient, channelObj: Channel, targetUsers: set[str],

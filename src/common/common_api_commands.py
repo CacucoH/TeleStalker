@@ -51,7 +51,10 @@ async def startScanningProcess(client: TelegramClient, chatId: str | int, trackU
 
     if isinstance(chatObj, Channel) and not chatObj.megagroup:
         tqdm.write(f"[i] Scanning channel @{chatObj.username} ({chatObj.id})")
-        totalChannels.append(await channelScanRecursion(client, chatObj, trackUsers=trackUsers, banned_usernames=banned_usernames))
+        channelInstance, _ = await channelScanRecursion(client, chatObj, trackUsers=trackUsers, banned_usernames=banned_usernames)
+
+        if channelInstance:
+            totalChannels.append(channelInstance)
     
     # If chat is presented:
     # Scan chat for channels -> recursively scan all found channels
@@ -62,8 +65,13 @@ async def startScanningProcess(client: TelegramClient, chatId: str | int, trackU
                                                         banned_usernames=banned_usernames, supergroup=isSupergroup)
         for subchannelId in groupInstance.subchannels.values():
             channelObj = await client.get_entity(subchannelId)
-            channelInstance: ChannelRecord = await channelScanRecursion(client, channelObj, trackUsers=trackUsers, banned_usernames=banned_usernames)
-            totalChannels.append(channelInstance)
+            channelInstance, isBlocked = await channelScanRecursion(client, channelObj, trackUsers=trackUsers, banned_usernames=banned_usernames)
+            
+            if channelInstance:
+                totalChannels.append(channelInstance)
+
+            if isBlocked:
+                break
 
     return totalChannels
 
