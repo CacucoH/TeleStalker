@@ -27,7 +27,7 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
             message = f"[i] Max recursion depth reached. Skipping {channelId}: {currentDepth} > {MAX_DEPTH}"
             tqdm.write(message)
             logging.info(message)
-            return
+            return None, False
         
         if not channelInstance:
             channelInstance: ChannelRecord = await getUsersFromChannelComments(client, channelObj, trackUsers, banned_usernames)

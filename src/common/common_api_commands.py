@@ -12,7 +12,7 @@ from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
 from telethon.tl.patched import Message
-from telethon.tl.types import UserFull, Channel, Chat, User
+from telethon.tl.types import UserFull, Channel, Chat, User, ChannelForbidden
 
 logger = logging.getLogger(__name__)
 MAX_DEPTH = int(os.getenv('MAX_DEPTH', 5))
@@ -163,7 +163,16 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
             
             sender = message.sender # Optimized
             senderId: int = sender.id
-            senderUsername: str = sender.username
+            try:
+                senderUsername: str = sender.username
+            except Exception as e:
+                # Skip to avoid error
+                if isinstance(sender, ChannelForbidden):
+                    logging.warning(f"[!] Skipping... megagroup? {senderId} {sender.title}")
+                    continue
+
+                logging.warning(f"[!] Username not found for {senderId}")
+                senderUsername = senderId
 
             # Dont waste API calls on deleted users
             if not senderUsername:
@@ -181,11 +190,16 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
             if senderUsername in targetUsers or \
                 str(senderId) in targetUsers:
                 user: UserRecord = chatRecord.getUser(senderId)
-                if user:
-                    msgDate = message.date.strftime('%Y-%m-%d %H:%M:%S')
-                    text = message.text or '<Non-text object>'
-                    link = await makeLink(message.id, chatRecord, originalPostId)
-                    user.capturedMessages[f"{msgDate} : {link}"] = f"{text[:100]} {'...' if len(text) > 100 else ''}"
+                if not user:
+                    user = UserRecord(sender)
+                    chatRecord.addUser(senderId, user)
+
+                msgDate = message.date.strftime('%Y-%m-%d %H:%M:%S')
+                text = message.text or '<Non-text object>'
+                link = await makeLink(message.id, chatRecord, originalPostId)
+                user.capturedMessages[f"{msgDate} : {link}"] = f"{text[:100]} {'...' if len(text) > 100 else ''}"
+
+                continue
 
             # Drain messages buffer if we met post from channel and continue
             if senderId == thisChatId:
