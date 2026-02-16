@@ -6,14 +6,14 @@ from telethon.tl.functions.channels import (GetFullChannelRequest,
 from telethon.tl.types import ChannelParticipantsAdmins, Chat, ChatFull, User
 from tqdm.asyncio import tqdm
 
-from src.classes.group import GroupRecord
-from src.classes.user import UserRecord
-from src.common.common_api_commands import (API_MAX_USERS_REQUEST,
+from classes.group import GroupRecord
+from classes.user import UserRecord
+from common.common_api_commands import (API_MAX_USERS_REQUEST,
                                             MAX_USERS_SCAN_ITERATIONS,
                                             USER_SEARCH_LIMIT,
                                             get_channel_from_user,
                                             getUsersByComments)
-from src.visuals import visualize_group_record
+from visuals.visuals import visualize_group_record
 
 
 async def getChatUsers(

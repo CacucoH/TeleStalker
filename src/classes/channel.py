@@ -1,4 +1,4 @@
-from src.classes.generic import BasicRecord
+from classes.generic import BasicRecord
 
 
 class ChannelRecord(BasicRecord):

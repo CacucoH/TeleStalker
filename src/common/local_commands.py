@@ -5,7 +5,7 @@ A helper module for processing events that are not related to communication with
 import logging
 import os
 
-from src.classes.user import UserRecord
+from classes.user import UserRecord
 
 DIRECTORIES = ["logs", "session", "config", "reports"]
 

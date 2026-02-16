@@ -7,11 +7,10 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
-from telethon.tl.types import User
 
-from src.classes.channel import ChannelRecord
-from src.classes.group import GroupRecord
-from src.classes.user import UserRecord
+from classes.channel import ChannelRecord
+from classes.group import GroupRecord
+from classes.user import UserRecord
 
 REPORT_DIR = "reports"
 
@@ -93,7 +92,7 @@ def visualize_group_record(group: GroupRecord):
     )
     console.print(bTable)
 
-    tree = Tree(f"👥 Users")
+    tree = Tree("👥 Users")
     tree = output_user_info(tree, group.members.values(), group.id)
 
     console.print(tree)

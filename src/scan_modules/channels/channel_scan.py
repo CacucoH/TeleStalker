@@ -1,15 +1,16 @@
 import logging
 
-from telethon import TelegramClient, errors
+from telethon import TelegramClient
 from telethon.tl.functions.channels import GetFullChannelRequest
-from telethon.tl.patched import Message
-from telethon.tl.types import ChatFull, User
+from telethon.tl.types import ChatFull
 from tqdm.asyncio import tqdm
 
-from src.classes.channel import ChannelRecord
-from src.classes.user import UserRecord
-from src.common.common_api_commands import *
-from src.common.local_commands import matchAdminsByNames
+from classes.channel import ChannelRecord
+from classes.user import UserRecord
+from common.common_api_commands import (MAX_DEPTH,
+                                            MAX_PARTICIPANTS_CHANNEL, Channel,
+                                            getUsersByComments, scanForAdmins)
+from common.local_commands import matchAdminsByNames
 
 
 async def channelScanRecursion(
@@ -79,9 +80,9 @@ async def channelScanRecursion(
                 break
 
     except KeyboardInterrupt:
-        tqdm.write("[!] Прерывание пользователем")
-    except:
-        tqdm.write("[!] API запросы на сегодня исчерпаны")
+        tqdm.write("[!] Caught CTRL+C")
+    except Exception:
+        tqdm.write("[!] API requests exhausted")
         return channelInstance, True
     return channelInstance, isBlocked
 

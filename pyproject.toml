@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "TeleStalker"
+version = "0.1.0"
+description = "You want to gather info about people and their relations with others, but everytime this process requires damn big amount of time? Well, we're in the same boat. That is why I tried to (at least somehow) optimize and automatize this annoying process. Hope that helps =P"
+authors = ["xpyhgejlb@gmail.com"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "telestalker", from = "src"}]  # ВАЖНО!
+
+[tool.poetry.dependencies]
+python = "^3.12"
+python-dotenv = "1.1.0"
+markdown-it-py = "3.0.0"
+mdurl = "0.1.2"
+pyaes = "1.6.1"
+pyasn1 = "0.6.1"
+Pygments = "2.19.1"
+rich = "14.0.0"
+rsa = "4.9.1"
+Telethon = "1.40.0"
+tqdm = "4.67.1"
+uvloop = "0.21.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.6.9"
+mypy = ">=1.11.0"
+pytest = ">=8.3.0"
+radon = ">=6.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "C4", "C9", "I", "UP"]
+ignore = ["E501"]

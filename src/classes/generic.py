@@ -1,4 +1,4 @@
-from src.classes.user import UserRecord
+from classes.user import UserRecord
 
 
 class BasicRecord:

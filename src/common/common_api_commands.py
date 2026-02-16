@@ -8,12 +8,19 @@ import logging
 import os
 import re
 
+from dotenv import load_dotenv
 from telethon import TelegramClient
-from telethon.tl.functions.messages import ImportChatInviteRequest
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.patched import Message
 from telethon.tl.types import Channel, ChannelForbidden, Chat, User, UserFull
 from tqdm.asyncio import tqdm
+
+from classes.channel import ChannelRecord
+from classes.group import GroupRecord
+from classes.user import UserRecord
+
+# Загрузка переменных окружения
+load_dotenv("./config/.env")
 
 logger = logging.getLogger(__name__)
 MAX_DEPTH = int(os.getenv("MAX_DEPTH", 5))
@@ -34,10 +41,6 @@ API_MAX_USERS_REQUEST = int(
 )  # Максимальное количество пользователей, получаемых за один запрос
 MAX_USERS_SCAN_ITERATIONS = int(os.getenv("MAX_USERS_SCAN_ITERATIONS", 5))
 
-from src.classes.channel import ChannelRecord
-from src.classes.group import GroupRecord
-from src.classes.user import UserRecord
-
 
 async def startScanningProcess(
     client: TelegramClient,
@@ -45,8 +48,8 @@ async def startScanningProcess(
     trackUsers: set[str] = set(),
     banned_usernames: set[str] = set(),
 ) -> list[ChannelRecord]:
-    from src.scan_modules.channels.channel_scan import channelScanRecursion
-    from src.scan_modules.groups.group_scan import getChatUsers
+    from scan_modules.channels.channel_scan import channelScanRecursion
+    from scan_modules.groups.group_scan import getChatUsers
 
     totalChannels: list[ChannelRecord] = []
 
@@ -223,7 +226,7 @@ async def getUsersByComments(
             senderId: int = sender.id
             try:
                 senderUsername: str = sender.username
-            except Exception as e:
+            except Exception:
                 # Skip to avoid error
                 if isinstance(sender, ChannelForbidden):
                     logging.warning(
