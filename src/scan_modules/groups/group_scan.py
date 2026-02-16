@@ -1,26 +1,27 @@
 import logging
 
 from telethon import TelegramClient
-from telethon.tl.functions.channels import (GetFullChannelRequest,
-                                            GetParticipantsRequest)
+from telethon.tl.functions.channels import GetFullChannelRequest, GetParticipantsRequest
 from telethon.tl.types import ChannelParticipantsAdmins, Chat, ChatFull, User
 from tqdm.asyncio import tqdm
 
 from classes.group import GroupRecord
 from classes.user import UserRecord
-from common.common_api_commands import (API_MAX_USERS_REQUEST,
-                                            MAX_USERS_SCAN_ITERATIONS,
-                                            USER_SEARCH_LIMIT,
-                                            get_channel_from_user,
-                                            getUsersByComments)
+from common.common_api_commands import (
+    API_MAX_USERS_REQUEST,
+    MAX_USERS_SCAN_ITERATIONS,
+    USER_SEARCH_LIMIT,
+    get_channel_from_user,
+    getUsersByComments,
+)
 from visuals.visuals import visualize_group_record
 
 
 async def getChatUsers(
     client: TelegramClient,
     chatObj: Chat,
-    trackUsers: set[str] = [],
-    banned_usernames: set[str] = [],
+    trackUsers: set[str] = None,
+    banned_usernames: set[str] = None,
     supergroup=False,
 ) -> GroupRecord | None:
     try:
@@ -48,8 +49,8 @@ async def getChatUsers(
             f"Ошибка при получении пользователей из комментариев группы @{groupInstance.id}: {e}"
         )
         logging.error(e)
-    finally:
-        return groupInstance
+
+    return groupInstance
 
 
 async def getGroupInfo(

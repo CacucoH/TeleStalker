@@ -38,3 +38,6 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "B", "C4", "C9", "I", "UP"]
 ignore = ["E501"]
+
+[tool.ruff.lint.mccabe]  # Max complexity is 15
+max-complexity = 15

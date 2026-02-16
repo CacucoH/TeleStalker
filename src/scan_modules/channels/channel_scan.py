@@ -7,9 +7,13 @@ from tqdm.asyncio import tqdm
 
 from classes.channel import ChannelRecord
 from classes.user import UserRecord
-from common.common_api_commands import (MAX_DEPTH,
-                                            MAX_PARTICIPANTS_CHANNEL, Channel,
-                                            getUsersByComments, scanForAdmins)
+from common.common_api_commands import (
+    MAX_DEPTH,
+    MAX_PARTICIPANTS_CHANNEL,
+    Channel,
+    getUsersByComments,
+    scanForAdmins,
+)
 from common.local_commands import matchAdminsByNames
 
 
@@ -19,8 +23,8 @@ async def channelScanRecursion(
     currentDepth: int = 1,
     channelInstance: ChannelRecord | None = None,
     creatorId: int | None = None,
-    trackUsers: set[str] = [],
-    banned_usernames: set[str] = [],
+    trackUsers: set[str] = None,
+    banned_usernames: set[str] = None,
     isBlocked: bool = False,
 ) -> list[ChannelRecord, bool]:
     """
@@ -91,7 +95,7 @@ async def getUsersFromChannelComments(
     client: TelegramClient,
     channelObj: Channel,
     targetUsers: set[str],
-    banned_usernames: set[str] = [],
+    banned_usernames: set[str] = None,
 ) -> list[UserRecord]:
     try:
         channelInstance = await getChannelInfo(client, channelObj)
@@ -115,8 +119,8 @@ async def getUsersFromChannelComments(
             f"Ошибка при получении пользователей из комментариев канала @{channelInstance.usernamme}: {e}"
         )
         logging.error(e)
-    finally:
-        return channelInstance
+
+    return channelInstance
 
 
 async def getChannelInfo(client: TelegramClient, channelObj: Channel) -> ChannelRecord:

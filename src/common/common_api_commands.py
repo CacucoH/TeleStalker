@@ -45,13 +45,15 @@ MAX_USERS_SCAN_ITERATIONS = int(os.getenv("MAX_USERS_SCAN_ITERATIONS", 5))
 async def startScanningProcess(
     client: TelegramClient,
     chatId: str | int,
-    trackUsers: set[str] = set(),
-    banned_usernames: set[str] = set(),
+    trackUsers: set[str] = None,
+    banned_usernames: set[str] = None,
 ) -> list[ChannelRecord]:
     from scan_modules.channels.channel_scan import channelScanRecursion
     from scan_modules.groups.group_scan import getChatUsers
 
     totalChannels: list[ChannelRecord] = []
+    trackUsers = trackUsers or set()
+    banned_usernames = banned_usernames or set()
 
     # We've got link
     try:
@@ -128,7 +130,7 @@ async def get_channel_from_user(
         full_user: UserFull = await client(GetFullUserRequest(user))
 
         personal_channel_id = getattr(full_user.full_user, "personal_channel_id", None)
-        bio = getattr(full_user.full_user, "about")
+        bio = full_user.full_user.about
 
         if personal_channel_id == current_channel_id:
             tqdm.write(
@@ -196,7 +198,7 @@ async def getUsersByComments(
     client: TelegramClient,
     chatRecord: GroupRecord | ChannelRecord,
     targetUsers: set[str],
-    banned_usernames: set[str] = [],
+    banned_usernames: set[str] = None,
     totalMessages: int = 0,
     participantsCount: int = 0,
 ) -> list[dict[UserRecord], dict[int, int]]:
@@ -206,7 +208,7 @@ async def getUsersByComments(
     """
     try:
         message: Message
-        originalPostId = None
+        # originalPostId = None
         thisChatId = chatRecord.id
         chatToScan = (
             chatRecord.linkedChat
@@ -222,76 +224,17 @@ async def getUsersByComments(
             if not message.sender:
                 continue
 
-            sender = message.sender  # Optimized
-            senderId: int = sender.id
-            try:
-                senderUsername: str = sender.username
-            except Exception:
-                # Skip to avoid error
-                if isinstance(sender, ChannelForbidden):
-                    logging.warning(
-                        f"[!] Skipping... megagroup? {senderId} {sender.title}"
-                    )
-                    continue
-
-                logging.warning(f"[!] Username not found for {senderId}")
-                senderUsername = senderId
-
-            # Dont waste API calls on deleted users
-            if not senderUsername:
-                logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
+            res = await search(
+                message, client, thisChatId, chatRecord, banned_usernames, targetUsers
+            )
+            if not res:
                 continue
 
-            if senderUsername in banned_usernames or str(senderId) in banned_usernames:
-                logging.debug(
-                    f"[i] User @{senderUsername} and their (potential) channel is banned from scanning. Skipping..."
-                )
-                continue
-
-            # If user asked to track some channel subs
-            # TODO: if user is not present comment wouldnt be saved
-            # На самом деле мне слшиком похцй это делать если хотите киньте PullReq :)
-            if senderUsername in targetUsers or str(senderId) in targetUsers:
-                user: UserRecord = chatRecord.getUser(senderId)
-                if not user:
-                    user = UserRecord(sender)
-                    chatRecord.addUser(senderId, user)
-
-                msgDate = message.date.strftime("%Y-%m-%d %H:%M:%S")
-                text = message.text or "<Non-text object>"
-                link = await makeLink(message.id, chatRecord, originalPostId)
-                user.capturedMessages[f"{msgDate} : {link}"] = (
-                    f"{text[:100]} {'...' if len(text) > 100 else ''}"
-                )
-
-                continue
-
-            # Drain messages buffer if we met post from channel and continue
-            if senderId == thisChatId:
-                if message.forward:
-                    originalPostId = message.forward.channel_post
-                continue
-
-            # Check if user is already present in channel or we deal not with user
-            if chatRecord.getUser(senderId) or not isinstance(sender, User):
-                continue
-
-            user = UserRecord(sender)
-
-            # Check if the user has a channel; If so add them
-            subChannId = await get_channel_from_user(client, senderUsername, thisChatId)
-            if subChannId:
-                chatRecord.addSubChannel(senderUsername, subChannId)
-                user.adminInChannel.add(subChannId)
-
-            chatRecord.addUser(senderId, user)
-            # elif isinstance(sender, Channel): # Admin found
-            #     prefix = "[+] New admin found:"
-            #     await channelInstance.addAdmin(sender.)
-
+            user, senderUsername = res[0], res[1]
             tqdm.write(
                 f"[+] New user found: {user.full_name} (@{senderUsername or '---'})"
             )
+
         tqdm.write(
             f"\n[i] Users found: {chatRecord.membersFound}/{participantsCount}\n{'-' * 64}"
         )
@@ -300,8 +243,81 @@ async def getUsersByComments(
         tqdm.write(f"Ошибка при получении пользователей из комментариев: {e}")
         logging.error(e)
 
-    finally:
-        return chatRecord
+    return chatRecord
+
+
+async def search(
+    message: Message,
+    client,
+    thisChatId: int,
+    chatRecord: GroupRecord | ChannelRecord,
+    banned_usernames: set[str],
+    targetUsers: set[str],
+    originalPostId: int = None,
+):
+    sender = message.sender  # Optimized
+    senderId: int = sender.id
+    senderUsername: str = sender.get("username")
+    if not senderUsername:
+        # Skip to avoid error
+        if isinstance(sender, ChannelForbidden):
+            logging.warning(f"[!] Skipping... megagroup? {senderId} {sender.title}")
+            return None
+
+        # Dont waste API calls on deleted users
+        logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
+        senderUsername = senderId
+
+        return None
+
+    if senderUsername in banned_usernames or str(senderId) in banned_usernames:
+        logging.debug(
+            f"[i] User @{senderUsername} and their (potential) channel is banned from scanning. Skipping..."
+        )
+        return None
+
+    # If user asked to track some channel subs
+    # TODO: if user is not present comment wouldnt be saved
+    # На самом деле мне слшиком похцй это делать если хотите киньте PullReq :)
+    if senderUsername in targetUsers or str(senderId) in targetUsers:
+        user: UserRecord = chatRecord.getUser(senderId)
+        if not user:
+            user = UserRecord(sender)
+            chatRecord.addUser(senderId, user)
+
+        msgDate = message.date.strftime("%Y-%m-%d %H:%M:%S")
+        text = message.text or "<Non-text object>"
+        link = await makeLink(message.id, chatRecord, originalPostId)
+        user.capturedMessages[f"{msgDate} : {link}"] = (
+            f"{text[:100]} {'...' if len(text) > 100 else ''}"
+        )
+
+        return None
+
+    # Drain messages buffer if we met post from channel and continue
+    if senderId == thisChatId:
+        if message.forward:
+            originalPostId = message.forward.channel_post
+        return None
+
+    # Check if user is already present in channel or we deal not with user
+    if chatRecord.getUser(senderId) or not isinstance(sender, User):
+        return None
+
+    user = UserRecord(sender)
+
+    # Check if the user has a channel; If so add them
+    subChannId = await get_channel_from_user(client, senderUsername, thisChatId)
+    if subChannId:
+        chatRecord.addSubChannel(senderUsername, subChannId)
+        user.adminInChannel.add(subChannId)
+
+    chatRecord.addUser(senderId, user)
+    # elif isinstance(sender, Channel): # Admin found
+    #     prefix = "[+] New admin found:"
+    #     await channelInstance.addAdmin(sender.)
+
+    return user, senderUsername
 
 
 async def makeLink(
