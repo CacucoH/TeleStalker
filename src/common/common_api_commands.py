@@ -232,7 +232,7 @@ async def getUsersByComments(
 
             user, senderUsername = res[0], res[1]
             tqdm.write(
-                f"[+] New user found: {user.full_name} (@{senderUsername or '---'})"
+                f"[+] New user found: {user.full_name} (@{senderUsername or str(user.id)})"
             )
 
         tqdm.write(
@@ -257,18 +257,20 @@ async def search(
 ):
     sender = message.sender  # Optimized
     senderId: int = sender.id
-    senderUsername: str = sender.get("username")
-    if not senderUsername:
-        # Skip to avoid error
-        if isinstance(sender, ChannelForbidden):
-            logging.warning(f"[!] Skipping... megagroup? {senderId} {sender.title}")
+    try:
+        senderUsername: str = sender.username
+    except Exception:
+        if not senderUsername:
+            # Skip to avoid error
+            if isinstance(sender, ChannelForbidden):
+                logging.warning(f"[!] Skipping... megagroup? {senderId} {sender.title}")
+                return None
+
+            # Dont waste API calls on deleted users
+            logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
+            senderUsername = senderId
+
             return None
-
-        # Dont waste API calls on deleted users
-        logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
-        senderUsername = senderId
-
-        return None
 
     if senderUsername in banned_usernames or str(senderId) in banned_usernames:
         logging.debug(
