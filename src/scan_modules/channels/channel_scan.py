@@ -1,24 +1,32 @@
 import logging
-from tqdm.asyncio import tqdm
 
 from telethon import TelegramClient, errors
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.patched import Message
-from telethon.tl.types import User, ChatFull
+from telethon.tl.types import ChatFull, User
+from tqdm.asyncio import tqdm
 
 from src.classes.channel import ChannelRecord
 from src.classes.user import UserRecord
-from src.common.local_commands import matchAdminsByNames
 from src.common.common_api_commands import *
+from src.common.local_commands import matchAdminsByNames
 
 
-async def channelScanRecursion(client: TelegramClient, channelObj: Channel, currentDepth: int = 1, channelInstance: ChannelRecord | None = None,
-                               creatorId: int | None = None, trackUsers: set[str] = [], banned_usernames: set[str] = [], isBlocked: bool = False) -> list[ChannelRecord, bool]:
+async def channelScanRecursion(
+    client: TelegramClient,
+    channelObj: Channel,
+    currentDepth: int = 1,
+    channelInstance: ChannelRecord | None = None,
+    creatorId: int | None = None,
+    trackUsers: set[str] = [],
+    banned_usernames: set[str] = [],
+    isBlocked: bool = False,
+) -> list[ChannelRecord, bool]:
     """
-        ## Рекурсивно сканирует подканалы и добавляет их пользователей в основной канал.
-        ### Returns:
-        - A Channel instance (ChannelRecord)
-        - Are you blocked by telegram API (bool)
+    ## Рекурсивно сканирует подканалы и добавляет их пользователей в основной канал.
+    ### Returns:
+    - A Channel instance (ChannelRecord)
+    - Are you blocked by telegram API (bool)
     """
     channelInstance: ChannelRecord = None
     try:
@@ -28,21 +36,25 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
             tqdm.write(message)
             logging.info(message)
             return None, False
-        
+
         if not channelInstance:
-            channelInstance: ChannelRecord = await getUsersFromChannelComments(client, channelObj, trackUsers, banned_usernames)
+            channelInstance: ChannelRecord = await getUsersFromChannelComments(
+                client, channelObj, trackUsers, banned_usernames
+            )
 
         if channelInstance.totalParticipants > MAX_PARTICIPANTS_CHANNEL:
             message = f"[i] Skipping {channelInstance.title} ({channelInstance.usernamme}). Participants exceed maximum value {channelInstance.totalParticipants} > {MAX_DEPTH}"
             tqdm.write(message)
             logging.info(message)
             return channelInstance
-        
+
         if creatorId:
             channelInstance.creatorName = creatorId
 
         admins: set[str] = await scanForAdmins(client, channelId)
-        channelInstance.admins = await matchAdminsByNames(channelInstance.members, admins)
+        channelInstance.admins = await matchAdminsByNames(
+            channelInstance.members, admins
+        )
 
         # На первой итерации необходимо указать админов канала (если найдены)
         if currentDepth == 1:
@@ -53,10 +65,12 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
         if not channelInstance or not channelInstance.subchannels:
             tqdm.write(f"[i] No subchannels for @{channelInstance.usernamme} =(((")
             return channelInstance
-        
+
         for username, subchannelId in channelInstance.subchannels.items():
             subChanObj: Channel = await client.get_entity(subchannelId)
-            subtree, isBlocked = await channelScanRecursion(client, subChanObj, currentDepth=currentDepth + 1, creatorId=username)
+            subtree, isBlocked = await channelScanRecursion(
+                client, subChanObj, currentDepth=currentDepth + 1, creatorId=username
+            )
             if subtree:
                 channelInstance.subchannels[username] = subtree
 
@@ -72,27 +86,43 @@ async def channelScanRecursion(client: TelegramClient, channelObj: Channel, curr
     return channelInstance, isBlocked
 
 
-async def getUsersFromChannelComments(client: TelegramClient, channelObj: Channel, targetUsers: set[str],
-                             banned_usernames: set[str] = []) -> list[UserRecord]:
+async def getUsersFromChannelComments(
+    client: TelegramClient,
+    channelObj: Channel,
+    targetUsers: set[str],
+    banned_usernames: set[str] = [],
+) -> list[UserRecord]:
     try:
         channelInstance = await getChannelInfo(client, channelObj)
         if not channelInstance.linkedChat:
-            tqdm.write(f"[!] У канала @{channelInstance.usernamme} нет привязанного чата с комментариями.")
+            tqdm.write(
+                f"[!] У канала @{channelInstance.usernamme} нет привязанного чата с комментариями."
+            )
             return channelInstance
 
-        channelInstance = await getUsersByComments(client, channelInstance, targetUsers=targetUsers, banned_usernames=banned_usernames,
-                                                      totalMessages=channelInstance.totalMessages, participantsCount=channelInstance.totalParticipants)
+        channelInstance = await getUsersByComments(
+            client,
+            channelInstance,
+            targetUsers=targetUsers,
+            banned_usernames=banned_usernames,
+            totalMessages=channelInstance.totalMessages,
+            participantsCount=channelInstance.totalParticipants,
+        )
 
     except Exception as e:
-        tqdm.write(f"Ошибка при получении пользователей из комментариев канала @{channelInstance.usernamme}: {e}")
+        tqdm.write(
+            f"Ошибка при получении пользователей из комментариев канала @{channelInstance.usernamme}: {e}"
+        )
         logging.error(e)
     finally:
-        return channelInstance  
+        return channelInstance
 
 
 async def getChannelInfo(client: TelegramClient, channelObj: Channel) -> ChannelRecord:
     # Получаем объект канала
-    tqdm.write(f"--- Gathering info from {channelObj.title} (@{channelObj.username}) ---")
+    tqdm.write(
+        f"--- Gathering info from {channelObj.title} (@{channelObj.username}) ---"
+    )
 
     # Получаем полную информацию о канале (ищем привязанный чат)
     full_channel: ChatFull = await client(GetFullChannelRequest(channelObj))
@@ -106,10 +136,10 @@ async def getChannelInfo(client: TelegramClient, channelObj: Channel) -> Channel
         channelId=channelObj.id,
         channelUsername=channelObj.username,
         channelTitle=channelObj.title,
-        creatorName=channelObj.username or 'Unknown',
+        creatorName=channelObj.username or "Unknown",
         totalParticipants=participants,
         totalMessages=approx_total_messages,
-        linkedChat=linked_chat
+        linkedChat=linked_chat,
     )
 
     return channelInstance

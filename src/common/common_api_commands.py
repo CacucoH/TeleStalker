@@ -1,72 +1,101 @@
 """
-    ## Contains common API commands for Telegram client operations.
-    These commands are used across different modules to interact with Telegram API.
+## Contains common API commands for Telegram client operations.
+These commands are used across different modules to interact with Telegram API.
 """
-import os
-import re
+
 import asyncio
 import logging
-from tqdm.asyncio import tqdm
+import os
+import re
 
 from telethon import TelegramClient
-from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
+from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.patched import Message
-from telethon.tl.types import UserFull, Channel, Chat, User, ChannelForbidden
+from telethon.tl.types import Channel, ChannelForbidden, Chat, User, UserFull
+from tqdm.asyncio import tqdm
 
 logger = logging.getLogger(__name__)
-MAX_DEPTH = int(os.getenv('MAX_DEPTH', 5))
-FLOOD_WAIT = float(os.getenv('SAFE_FLOOD_TIME', 1))  # Время ожидания между запросами, по умолчанию 0.5 секунды
-USER_SEARCH_LIMIT = int(os.getenv('USER_SEARCH_LIMIT', 50))
-API_MESSAGES_PER_REQUEST = int(os.getenv('API_MESSAGES_PER_REQUEST'))
-ADMIN_MAX_PROBING = int(os.getenv('ADMIN_MAX_PROBING'))
-MAX_PARTICIPANTS_GROUP = int(os.getenv('MAX_PARTICIPANTS_GROUP', 666))  # Максимальное количество участников в группе для обработки
-MAX_PARTICIPANTS_CHANNEL = int(os.getenv('MAX_PARTICIPANTS_CHANNEL', 1000))  # Максимальное количество участников для обработки
-API_MAX_USERS_REQUEST = int(os.getenv('API_MAX_USERS_REQUEST', 200))  # Максимальное количество пользователей, получаемых за один запрос
-MAX_USERS_SCAN_ITERATIONS = int(os.getenv('MAX_USERS_SCAN_ITERATIONS', 5))
+MAX_DEPTH = int(os.getenv("MAX_DEPTH", 5))
+FLOOD_WAIT = float(
+    os.getenv("SAFE_FLOOD_TIME", 1)
+)  # Время ожидания между запросами, по умолчанию 0.5 секунды
+USER_SEARCH_LIMIT = int(os.getenv("USER_SEARCH_LIMIT", 50))
+API_MESSAGES_PER_REQUEST = int(os.getenv("API_MESSAGES_PER_REQUEST"))
+ADMIN_MAX_PROBING = int(os.getenv("ADMIN_MAX_PROBING"))
+MAX_PARTICIPANTS_GROUP = int(
+    os.getenv("MAX_PARTICIPANTS_GROUP", 666)
+)  # Максимальное количество участников в группе для обработки
+MAX_PARTICIPANTS_CHANNEL = int(
+    os.getenv("MAX_PARTICIPANTS_CHANNEL", 1000)
+)  # Максимальное количество участников для обработки
+API_MAX_USERS_REQUEST = int(
+    os.getenv("API_MAX_USERS_REQUEST", 200)
+)  # Максимальное количество пользователей, получаемых за один запрос
+MAX_USERS_SCAN_ITERATIONS = int(os.getenv("MAX_USERS_SCAN_ITERATIONS", 5))
 
 from src.classes.channel import ChannelRecord
-from src.classes.user import UserRecord
 from src.classes.group import GroupRecord
+from src.classes.user import UserRecord
 
 
-async def startScanningProcess(client: TelegramClient, chatId: str | int, trackUsers: set[str] = set(),
-                               banned_usernames: set[str] = set()) -> list[ChannelRecord]:
+async def startScanningProcess(
+    client: TelegramClient,
+    chatId: str | int,
+    trackUsers: set[str] = set(),
+    banned_usernames: set[str] = set(),
+) -> list[ChannelRecord]:
     from src.scan_modules.channels.channel_scan import channelScanRecursion
     from src.scan_modules.groups.group_scan import getChatUsers
-    
+
     totalChannels: list[ChannelRecord] = []
-    
+
     # We've got link
     try:
-        chatObj = await client.get_entity(chatId)     
+        chatObj = await client.get_entity(chatId)
     except Exception as e:
         logging.error(e)
-        tqdm.write(f"Cannot get {chatId} entity. Ensure you're provide existing ID and you have joined this chat if it's private")
+        tqdm.write(
+            f"Cannot get {chatId} entity. Ensure you're provide existing ID and you have joined this chat if it's private"
+        )
         return
 
     if not chatObj:
-        tqdm.write(f"[!] Bruhhh cannot obtain any info about @{chatId}. Double check ID or username")
+        tqdm.write(
+            f"[!] Bruhhh cannot obtain any info about @{chatId}. Double check ID or username"
+        )
         return
 
     if isinstance(chatObj, Channel) and not chatObj.megagroup:
         tqdm.write(f"[i] Scanning channel @{chatObj.username} ({chatObj.id})")
-        channelInstance, _ = await channelScanRecursion(client, chatObj, trackUsers=trackUsers, banned_usernames=banned_usernames)
+        channelInstance, _ = await channelScanRecursion(
+            client, chatObj, trackUsers=trackUsers, banned_usernames=banned_usernames
+        )
 
         if channelInstance:
             totalChannels.append(channelInstance)
-    
+
     # If chat is presented:
     # Scan chat for channels -> recursively scan all found channels
     elif isinstance(chatObj, Chat) or (isinstance(chatObj, Channel)):
         tqdm.write(f"[i] Scanning chat {chatObj.title} ({chatObj.id})")
         isSupergroup = isinstance(chatObj, Channel) and chatObj.megagroup
-        groupInstance: GroupRecord = await getChatUsers(client, chatObj, trackUsers=trackUsers,
-                                                        banned_usernames=banned_usernames, supergroup=isSupergroup)
+        groupInstance: GroupRecord = await getChatUsers(
+            client,
+            chatObj,
+            trackUsers=trackUsers,
+            banned_usernames=banned_usernames,
+            supergroup=isSupergroup,
+        )
         for subchannelId in groupInstance.subchannels.values():
             channelObj = await client.get_entity(subchannelId)
-            channelInstance, isBlocked = await channelScanRecursion(client, channelObj, trackUsers=trackUsers, banned_usernames=banned_usernames)
-            
+            channelInstance, isBlocked = await channelScanRecursion(
+                client,
+                channelObj,
+                trackUsers=trackUsers,
+                banned_usernames=banned_usernames,
+            )
+
             if channelInstance:
                 totalChannels.append(channelInstance)
 
@@ -76,34 +105,47 @@ async def startScanningProcess(client: TelegramClient, chatId: str | int, trackU
     return totalChannels
 
 
-async def get_channel_from_user(client: TelegramClient, username: str, current_channel_id: int, user: User | None = None) -> int | str | None:
+async def get_channel_from_user(
+    client: TelegramClient,
+    username: str,
+    current_channel_id: int,
+    user: User | None = None,
+) -> int | str | None:
     """
-        ## Obtains a channel ID from a user's profile or bio
-        Returns the channel ID if found, otherwise None
+    ## Obtains a channel ID from a user's profile or bio
+    Returns the channel ID if found, otherwise None
     """
     try:
         if not user:
             user = await client.get_entity(username)
-        
-        await asyncio.sleep(0.05)  # Задержка для избежания превышения частоты запросов API
+
+        await asyncio.sleep(
+            0.05
+        )  # Задержка для избежания превышения частоты запросов API
         full_user: UserFull = await client(GetFullUserRequest(user))
-        
-        personal_channel_id = getattr(full_user.full_user, 'personal_channel_id', None)
-        bio = getattr(full_user.full_user, 'about')
+
+        personal_channel_id = getattr(full_user.full_user, "personal_channel_id", None)
+        bio = getattr(full_user.full_user, "about")
 
         if personal_channel_id == current_channel_id:
-            tqdm.write(f"[i] Пользователь @{username} уже связан с каналом ID: {current_channel_id}")
+            tqdm.write(
+                f"[i] Пользователь @{username} уже связан с каналом ID: {current_channel_id}"
+            )
             return None
-        
+
         # Search in profile
         if personal_channel_id:
-            tqdm.write(f"[🎉] У пользователя @{username} прикреплён канал. ID: {personal_channel_id}")
+            tqdm.write(
+                f"[🎉] У пользователя @{username} прикреплён канал. ID: {personal_channel_id}"
+            )
             return personal_channel_id
         # Search in bio
         elif bio:
-            channel_in_bio = re.match(r'(https:\/\/)?t\.me\/[a-z0-9]+', bio)
+            channel_in_bio = re.match(r"(https:\/\/)?t\.me\/[a-z0-9]+", bio)
             if channel_in_bio:
-                tqdm.write(f"[🎉] У пользователя @{username} канал в коментах. ID: {channel_in_bio.group(0)}")
+                tqdm.write(
+                    f"[🎉] У пользователя @{username} канал в коментах. ID: {channel_in_bio.group(0)}"
+                )
                 return channel_in_bio.group(0)
     except Exception as e:
         tqdm.write(f"[!] Error while trying to get channel from user @{username}: {e}")
@@ -112,8 +154,8 @@ async def get_channel_from_user(client: TelegramClient, username: str, current_c
 
 async def scanForAdmins(client: TelegramClient, channelId: str | int) -> set[str]:
     """
-        ## Scans the specified channel for admin signatures in messages
-        Returns a list of admin usernames found in the channel
+    ## Scans the specified channel for admin signatures in messages
+    Returns a list of admin usernames found in the channel
     """
     admins = set()
     message: Message
@@ -121,9 +163,13 @@ async def scanForAdmins(client: TelegramClient, channelId: str | int) -> set[str
     adminFoundMessage = False
     counter = 1
 
-    maxMessages = API_MESSAGES_PER_REQUEST*ADMIN_MAX_PROBING
+    maxMessages = API_MESSAGES_PER_REQUEST * ADMIN_MAX_PROBING
     tqdm.write("[i] Probing channel for admin signatures")
-    async for message in tqdm(client.iter_messages(channelId, wait_time=FLOOD_WAIT, limit=maxMessages), total=maxMessages, desc="Searching for admins"):
+    async for message in tqdm(
+        client.iter_messages(channelId, wait_time=FLOOD_WAIT, limit=maxMessages),
+        total=maxMessages,
+        desc="Searching for admins",
+    ):
         adminName = message.post_author
         if adminName:
             admins.add(adminName)
@@ -135,7 +181,7 @@ async def scanForAdmins(client: TelegramClient, channelId: str | int) -> set[str
                 break
             adminFoundMessage = True
             tqdm.write("[i] Admin signatures found, continuing probing!!!")
-        
+
         counter += 1
 
     if admins:
@@ -143,32 +189,46 @@ async def scanForAdmins(client: TelegramClient, channelId: str | int) -> set[str
     return admins
 
 
-async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | ChannelRecord, targetUsers: set[str], banned_usernames: set[str] = [],
-                              totalMessages: int = 0, participantsCount: int = 0) -> list[dict[UserRecord], dict[int, int]]:
+async def getUsersByComments(
+    client: TelegramClient,
+    chatRecord: GroupRecord | ChannelRecord,
+    targetUsers: set[str],
+    banned_usernames: set[str] = [],
+    totalMessages: int = 0,
+    participantsCount: int = 0,
+) -> list[dict[UserRecord], dict[int, int]]:
     """
-        ### Generic method to get users from comments in a channel or chat
-        Returns dict of `UserRecord` instances and a dict of subchannels found.
+    ### Generic method to get users from comments in a channel or chat
+    Returns dict of `UserRecord` instances and a dict of subchannels found.
     """
     try:
         message: Message
         originalPostId = None
         thisChatId = chatRecord.id
-        chatToScan = chatRecord.linkedChat if isinstance(chatRecord, ChannelRecord) else thisChatId
+        chatToScan = (
+            chatRecord.linkedChat
+            if isinstance(chatRecord, ChannelRecord)
+            else thisChatId
+        )
 
         async for message in tqdm(
-            client.iter_messages(chatToScan, wait_time=FLOOD_WAIT, reverse=True), 
-            total=totalMessages, desc="Scanning channel messages"):
+            client.iter_messages(chatToScan, wait_time=FLOOD_WAIT, reverse=True),
+            total=totalMessages,
+            desc="Scanning channel messages",
+        ):
             if not message.sender:
                 continue
-            
-            sender = message.sender # Optimized
+
+            sender = message.sender  # Optimized
             senderId: int = sender.id
             try:
                 senderUsername: str = sender.username
             except Exception as e:
                 # Skip to avoid error
                 if isinstance(sender, ChannelForbidden):
-                    logging.warning(f"[!] Skipping... megagroup? {senderId} {sender.title}")
+                    logging.warning(
+                        f"[!] Skipping... megagroup? {senderId} {sender.title}"
+                    )
                     continue
 
                 logging.warning(f"[!] Username not found for {senderId}")
@@ -179,25 +239,27 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
                 logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
                 continue
 
-            if senderUsername in banned_usernames or \
-                str(senderId) in banned_usernames:
-                logging.debug(f"[i] User @{senderUsername} and their (potential) channel is banned from scanning. Skipping...")
+            if senderUsername in banned_usernames or str(senderId) in banned_usernames:
+                logging.debug(
+                    f"[i] User @{senderUsername} and their (potential) channel is banned from scanning. Skipping..."
+                )
                 continue
 
             # If user asked to track some channel subs
             # TODO: if user is not present comment wouldnt be saved
             # На самом деле мне слшиком похцй это делать если хотите киньте PullReq :)
-            if senderUsername in targetUsers or \
-                str(senderId) in targetUsers:
+            if senderUsername in targetUsers or str(senderId) in targetUsers:
                 user: UserRecord = chatRecord.getUser(senderId)
                 if not user:
                     user = UserRecord(sender)
                     chatRecord.addUser(senderId, user)
 
-                msgDate = message.date.strftime('%Y-%m-%d %H:%M:%S')
-                text = message.text or '<Non-text object>'
+                msgDate = message.date.strftime("%Y-%m-%d %H:%M:%S")
+                text = message.text or "<Non-text object>"
                 link = await makeLink(message.id, chatRecord, originalPostId)
-                user.capturedMessages[f"{msgDate} : {link}"] = f"{text[:100]} {'...' if len(text) > 100 else ''}"
+                user.capturedMessages[f"{msgDate} : {link}"] = (
+                    f"{text[:100]} {'...' if len(text) > 100 else ''}"
+                )
 
                 continue
 
@@ -206,8 +268,8 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
                 if message.forward:
                     originalPostId = message.forward.channel_post
                 continue
-            
-            # Check if user is already present in channel or we deal not with user 
+
+            # Check if user is already present in channel or we deal not with user
             if chatRecord.getUser(senderId) or not isinstance(sender, User):
                 continue
 
@@ -218,14 +280,18 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
             if subChannId:
                 chatRecord.addSubChannel(senderUsername, subChannId)
                 user.adminInChannel.add(subChannId)
-            
+
             chatRecord.addUser(senderId, user)
             # elif isinstance(sender, Channel): # Admin found
             #     prefix = "[+] New admin found:"
             #     await channelInstance.addAdmin(sender.)
 
-            tqdm.write(f"[+] New user found: {user.full_name} (@{senderUsername or '---'})")
-        tqdm.write(f"\n[i] Users found: {chatRecord.membersFound}/{participantsCount}\n{'-' * 64}")
+            tqdm.write(
+                f"[+] New user found: {user.full_name} (@{senderUsername or '---'})"
+            )
+        tqdm.write(
+            f"\n[i] Users found: {chatRecord.membersFound}/{participantsCount}\n{'-' * 64}"
+        )
 
     except Exception as e:
         tqdm.write(f"Ошибка при получении пользователей из комментариев: {e}")
@@ -233,18 +299,22 @@ async def getUsersByComments(client: TelegramClient, chatRecord: GroupRecord | C
 
     finally:
         return chatRecord
-    
 
-async def makeLink(messageId: int, chat: ChannelRecord | GroupRecord, originalPostId: int | None = None) -> str:
+
+async def makeLink(
+    messageId: int, chat: ChannelRecord | GroupRecord, originalPostId: int | None = None
+) -> str:
     """
-        ## Generates a link to the public/private channel/group/supergroup.
-        Returns a string with the link
+    ## Generates a link to the public/private channel/group/supergroup.
+    Returns a string with the link
     """
     if chat.isChannel:
         if not chat.isSupergroup:
-            return f"https://t.me/{chat.usernamme}/{originalPostId}/?comment={messageId}"
+            return (
+                f"https://t.me/{chat.usernamme}/{originalPostId}/?comment={messageId}"
+            )
 
     username = chat.usernamme
     if not username:
         return f"https://t.me/c/{chat.id}/{messageId}"
-    return f"https://t.me/{username}/{messageId}"      
+    return f"https://t.me/{username}/{messageId}"

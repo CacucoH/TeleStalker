@@ -2,7 +2,7 @@ class UserRecord:
     def __init__(self, user):
         self.id = user.id
         self.username = user.username
-        self.first_name = user.first_name or ''
+        self.first_name = user.first_name or ""
         self.full_name = f"{self.first_name} {user.last_name or ''}".strip()
         self.is_bot = user.bot
         self.is_verified = user.verified
@@ -11,11 +11,11 @@ class UserRecord:
         self.is_scam = user.scam
         self.is_fake = user.fake
         self.lang_code = user.lang_code
-        self.emoji_status = getattr(user.emoji_status, 'document_id', None)
+        self.emoji_status = getattr(user.emoji_status, "document_id", None)
         self.phone = user.phone
         self.adminInChannel = set()
         self.capturedMessages = {}
-        
+
     def __repr__(self):
         return f"<UserRecord {self.full_name} @{self.username} ({self.status})>"
 
