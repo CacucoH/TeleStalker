@@ -1,4 +1,5 @@
-from src.classes.generic import BasicRecord
+from classes.generic import BasicRecord
+
 
 class GroupRecord(BasicRecord):
     def __init__(
@@ -22,7 +23,7 @@ class GroupRecord(BasicRecord):
             totalMessages=total_messages,
             linkedChat=None,  # Groups do not have linked chats like channels
             isChannel=False,
-            isSupergroup=is_supergroup
+            isSupergroup=is_supergroup,
         )
 
         self.description = description
@@ -32,7 +33,7 @@ class GroupRecord(BasicRecord):
         if user_id not in self.members:
             self.members[user_id] = user_obj
             self.members_found += 1
-    
+
     @DeprecationWarning
     def add_admin(self, user_id: int | str, participant_obj) -> None:
         self.admins[user_id] = participant_obj

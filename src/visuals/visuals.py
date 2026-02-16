@@ -1,16 +1,17 @@
 import os
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.tree import Tree
-from rich.text import Text
-from rich import box
-from telethon.tl.types import User
-from rich import print as rprint
 
-from src.classes.channel import ChannelRecord
-from src.classes.group import GroupRecord
-from src.classes.user import UserRecord
+from rich import box
+from rich import print as rprint
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from rich.tree import Tree
+
+from classes.channel import ChannelRecord
+from classes.group import GroupRecord
+from classes.user import UserRecord
+
 REPORT_DIR = "reports"
 
 
@@ -23,8 +24,8 @@ def visualize_channel_record(record: ChannelRecord):
 
     table.add_row("Channel ID", str(record.id))
     table.add_row("Creator", record.creatorName)
-    table.add_row("Total Participants", '~' + str(record.totalParticipants))
-    table.add_row("Total Messages", '~' + str(record.totalMessages))
+    table.add_row("Total Participants", "~" + str(record.totalParticipants))
+    table.add_row("Total Messages", "~" + str(record.totalMessages))
     # table.add_row("members Found", str(record.membersFound))
     table.add_row("Admins Found", str(len(record.admins)))
     table.add_row("Subchannels", str(len(record.subchannels)))
@@ -36,17 +37,19 @@ def visualize_channel_record(record: ChannelRecord):
 def createSubchannelsTree(record: ChannelRecord, root: bool = True) -> Tree:
     if not isinstance(record, ChannelRecord):
         return
-    
+
     prefix = "🌐" if root else "📎"
-    tree = Tree(f"{prefix} [bold]{record.title}[/] ({record.usernamme}) by [green]@{record.creatorName}[/] ({record.membersFound}/{record.totalParticipants} пользователей)")
+    tree = Tree(
+        f"{prefix} [bold]{record.title}[/] ({record.usernamme}) by [green]@{record.creatorName}[/] ({record.membersFound}/{record.totalParticipants} пользователей)"
+    )
 
     tree = output_user_info(tree, record.members.values(), record.id)
-    
+
     for _, subchannel in record.subchannels.items():
         subtree = createSubchannelsTree(subchannel, root=False)
         if subtree:
             tree.add(subtree)
-    
+
     return tree
 
 
@@ -63,18 +66,33 @@ def visualize_group_record(group: GroupRecord):
 
     group_table.add_row("ID:", str(group.id))
     group_table.add_row("Creator:", group.creatorName or "N/A")
-    group_table.add_row("Total Members:", str(group.totalParticipants if group.totalParticipants != -1 else group.membersFound))
+    group_table.add_row(
+        "Total Members:",
+        str(
+            group.totalParticipants
+            if group.totalParticipants != -1
+            else group.membersFound
+        ),
+    )
     group_table.add_row("Admins Found:", str(len(group.admins)))
-    group_table.add_row("Messages:", str(group.totalMessages if group.totalMessages != -1 else "N/A"))
+    group_table.add_row(
+        "Messages:", str(group.totalMessages if group.totalMessages != -1 else "N/A")
+    )
     group_table.add_row("Supergroup:", "✅" if group.isSupergroup else "❌")
 
     if group.description:
         group_table.add_row("Description:", group.description.strip())
 
-    bTable = Panel(group_table, title=title_text, expand=False, border_style="green", box=box.ROUNDED)
+    bTable = Panel(
+        group_table,
+        title=title_text,
+        expand=False,
+        border_style="green",
+        box=box.ROUNDED,
+    )
     console.print(bTable)
 
-    tree = Tree(f"👥 Users")
+    tree = Tree("👥 Users")
     tree = output_user_info(tree, group.members.values(), group.id)
 
     console.print(tree)
@@ -96,19 +114,25 @@ def visualize_subchannels_tree(record: ChannelRecord):
 
 def writeOutputToFile(filename: str, data) -> bool:
     filepath = os.path.join(REPORT_DIR, filename)
-    with open(filepath, 'a') as targetFile:
+    with open(filepath, "a") as targetFile:
         rprint(data, file=targetFile)
 
 
 def output_user_info(tree: Tree, users: set[UserRecord], currentChatId: int) -> Tree:
     user: UserRecord
     for user in users:
-        phoneNum = ' | [bold red]' + user.phone + '[/]' if user.phone else ''
-        admin = ' | [bold red]admin[/]' if currentChatId in user.adminInChannel else ''
-        hasChannel = ''
+        phoneNum = " | [bold red]" + user.phone + "[/]" if user.phone else ""
+        admin = " | [bold red]admin[/]" if currentChatId in user.adminInChannel else ""
+        hasChannel = ""
         if not admin:
-            hasChannel = f' | [green]adm in {len(user.adminInChannel)} chat(s)[/]' if user.adminInChannel else ''
-        user_branch = tree.add(f"👤 {user.id} | @{user.username} | {user.full_name}{admin}{phoneNum}{hasChannel}")
+            hasChannel = (
+                f" | [green]adm in {len(user.adminInChannel)} chat(s)[/]"
+                if user.adminInChannel
+                else ""
+            )
+        user_branch = tree.add(
+            f"👤 {user.id} | @{user.username} | {user.full_name}{admin}{phoneNum}{hasChannel}"
+        )
         for link, comment in user.capturedMessages.items():
             user_branch.add(f"💬 [blue]{link}[/] | {comment}")
     return tree

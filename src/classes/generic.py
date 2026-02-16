@@ -1,18 +1,19 @@
-from src.classes.user import UserRecord
+from classes.user import UserRecord
+
 
 class BasicRecord:
     def __init__(
-            self,
-            id: int, 
-            username: str, 
-            title: str, 
-            creatorUsername: str, 
-            totalParticipants: int = -1, 
-            totalMessages: int = -1,
-            linkedChat: int | str | None = None,
-            isChannel: bool = True,
-            isSupergroup: bool = False
-        ):
+        self,
+        id: int,
+        username: str,
+        title: str,
+        creatorUsername: str,
+        totalParticipants: int = -1,
+        totalMessages: int = -1,
+        linkedChat: int | str | None = None,
+        isChannel: bool = True,
+        isSupergroup: bool = False,
+    ):
         self.id = id
         self.title = title
         self.usernamme = username
@@ -34,7 +35,7 @@ class BasicRecord:
         if not self.getUser(userId):
             self.members[userId] = user
             self.membersFound += 1
-    
+
     def addAdmin(self, admId, admin) -> None:
         if not self.getAdmin(admId):
             self.admins[admId] = admin
@@ -43,10 +44,10 @@ class BasicRecord:
 
     def getUser(self, userId: int | str):
         return self.members.get(userId)
-    
+
     def getAdmin(self, userId: int | str):
         return self.admins.get(userId)
-    
+
     def addSubChannel(self, userName: str, subchannelRecord):
         self.subchannels[userName] = subchannelRecord
 

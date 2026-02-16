@@ -4,3 +4,4 @@ session/
 **__pycache__**
 reports
 **/.env
+dist/

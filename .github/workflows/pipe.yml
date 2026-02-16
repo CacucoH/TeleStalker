@@ -1,0 +1,64 @@
+name: Based Sigma pipeline +aura
+
+on: 
+  push:
+    branches: [dev] # All checks on dev
+  pull_request:
+    branches: [dev] # Qual checks on pull
+
+jobs:
+  lint:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install ruff
+        run: pipx install ruff
+        
+      - name: Run ruff check
+        run: |
+          ruff check src
+          ruff format --check src
+
+  semgrep:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+        continue-on-error: false
+
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Code complexity (max 15)
+        run: |
+          radon cc src/ | awk '$2 > 13 {exit 1}'  # FAIL при > 13
+      
+      # - name: Install mypy
+      #   run: pipx install mypy
+        
+      # - name: Run mypy
+      #   run: |
+      #     if [ "${{ github.event_name }}" = "pull_request" ]; then
+      #       git diff --name-only origin/${{ github.base_ref }} | grep '\.py$' | xargs mypy || mypy src/
+      #     else
+      #       mypy src/
+          # fi
