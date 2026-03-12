@@ -1,7 +1,7 @@
-import telethon
-
-from qrcode import QRCode
 from getpass import getpass
+
+import telethon
+from qrcode import QRCode
 
 qr = QRCode()
 
@@ -21,9 +21,9 @@ async def auth(client: telethon.TelegramClient):
         try:
             r = await qr_login.wait(10)
         except telethon.errors.rpcerrorlist.SessionPasswordNeededError:
-            password = getpass('Please, specify 2FA password: ')
+            password = getpass("Please, specify 2FA password: ")
             await client.sign_in(password=password)
             r = True
-        except:
+        except Exception:
             await qr_login.recreate()
     # me = await client.get_me()

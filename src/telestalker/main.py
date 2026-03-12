@@ -42,24 +42,24 @@ def defineArgs() -> argparse.Namespace:
         "-u",
         "--users",
         help='If you want, you may specify username, usernames or user IDs set to search for comments (space separated, w/o "@" symbol). Would not work with supergroups',
-        nargs="+"
+        nargs="+",
     )
     parser.add_argument(
         "-r",
         "--recursion-depth",
         type=int,
-        help="Specify how large our recursion tree would be. Optimal values are 2-3. By default scans only given channel"
+        help="Specify how large our recursion tree would be. Optimal values are 2-3. By default scans only given channel",
     )
     parser.add_argument(
         "-e",
         "--exclude",
         help='Exlude user from scanning by their USERNAME. You may specify multiple usernames to exclude (space separated, w/o "@" symbol). Would not work with supergroups',
-        nargs="+"
+        nargs="+",
     )
     parser.add_argument(
         "-q",
         "--qr",
-        help='Login by QR code if Telegram doesnt send you auth code',
+        help="Login by QR code if Telegram doesnt send you auth code",
         action="store_true",
     )
     args = parser.parse_args()
@@ -89,9 +89,13 @@ async def main():
 
     try:
         print("> Started TeleSlaker")
-        
+
         allChannels = await common_api_commands.startScanningProcess(
-            client, args.chat, recursionDepth=args.recursion_depth, trackUsers=users, banned_usernames=exclude
+            client,
+            args.chat,
+            recursionDepth=args.recursion_depth,
+            trackUsers=users,
+            banned_usernames=exclude,
         )
 
         if not allChannels:
@@ -107,10 +111,10 @@ async def main():
         await client.disconnect()
         print("> Finished TeleSlaker")
 
+
 try:
     client.loop.run_until_complete(main())
 except KeyboardInterrupt:
     print("[!] Interrupted by user")
 except Exception as e:
     logging.error(f"An error occurred: {e}")
-    
