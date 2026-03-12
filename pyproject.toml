@@ -5,7 +5,10 @@ description = "You want to gather info about people and their relations with oth
 authors = ["xpyhgejlb@gmail.com"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "telestalker", from = "src"}]  # ВАЖНО!
+packages = [
+    { include = "telestalker", from = "src" },
+    { include = "common", from = "src" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -19,7 +22,7 @@ rich = "14.0.0"
 rsa = "4.9.1"
 Telethon = "1.40.0"
 tqdm = "4.67.1"
-uvloop = "0.21.0"
+qrcode = "8.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = ">=0.6.9"

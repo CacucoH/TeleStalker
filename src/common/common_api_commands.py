@@ -45,12 +45,17 @@ MAX_USERS_SCAN_ITERATIONS = int(os.getenv("MAX_USERS_SCAN_ITERATIONS", 5))
 async def startScanningProcess(
     client: TelegramClient,
     chatId: str | int,
+    recursionDepth: int | None = None,
     trackUsers: set[str] = None,
     banned_usernames: set[str] = None,
 ) -> list[ChannelRecord]:
     from scan_modules.channels.channel_scan import channelScanRecursion
     from scan_modules.groups.group_scan import getChatUsers
 
+    if not recursionDepth:
+        recursionDepth = MAX_DEPTH
+
+    print(recursionDepth)
     totalChannels: list[ChannelRecord] = []
     trackUsers = trackUsers or set()
     banned_usernames = banned_usernames or set()
