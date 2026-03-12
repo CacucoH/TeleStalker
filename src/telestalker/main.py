@@ -2,10 +2,10 @@ import argparse
 import logging
 import os
 
-import uvloop
+# import uvloop # под вопросом, так как он не работает в Windows
 from telethon import TelegramClient
 
-from common import common_api_commands
+from common import common_api_commands, qr_auth
 from visuals import visuals
 
 # Настройка логов
@@ -17,8 +17,7 @@ logging.basicConfig(
     filemode="w",
 )
 
-# Оптимизация asyncio
-uvloop.install()
+# uvloop.install()
 
 api_id = int(os.getenv("api_id"))
 api_hash = os.getenv("api_hash")
@@ -29,7 +28,7 @@ client = TelegramClient("./session/" + session_name, api_id, api_hash)
 
 def defineArgs() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="teleStalker",
+        prog="TeleStalker",
         description="Searches for users in channels and their subchannels recursively. Makes OSINT process much easier and saves your time",
         epilog="",
     )
@@ -43,18 +42,25 @@ def defineArgs() -> argparse.Namespace:
         "-u",
         "--users",
         help='If you want, you may specify username, usernames or user IDs set to search for comments (space separated, w/o "@" symbol). Would not work with supergroups',
-        nargs="+",
+        nargs="+"
     )
     parser.add_argument(
         "-r",
         "--recursion-depth",
-        help="Specify how large our recursion tree would be. Optimal values are 2-3. By default scans only given channel",
+        type=int,
+        help="Specify how large our recursion tree would be. Optimal values are 2-3. By default scans only given channel"
     )
     parser.add_argument(
         "-e",
         "--exclude",
         help='Exlude user from scanning by their USERNAME. You may specify multiple usernames to exclude (space separated, w/o "@" symbol). Would not work with supergroups',
-        nargs="+",
+        nargs="+"
+    )
+    parser.add_argument(
+        "-q",
+        "--qr",
+        help='Login by QR code if Telegram doesnt send you auth code',
+        action="store_true",
     )
     args = parser.parse_args()
 
@@ -63,9 +69,8 @@ def defineArgs() -> argparse.Namespace:
 
 async def main():
     args = defineArgs()
-    recursionDepth = args.recursion_depth
-    if recursionDepth:
-        os.environ["MAX_DEPTH"] = recursionDepth
+
+    qr_login = args.qr
 
     users = set()
     exclude = set()
@@ -77,10 +82,16 @@ async def main():
     if args.exclude:
         exclude = set(args.exclude)
 
-    async with client:
+    # Connect to Telegram
+    await client.connect()
+    if not await client.is_user_authorized() and qr_login:
+        await qr_auth.auth(client)
+
+    try:
         print("> Started TeleSlaker")
+        
         allChannels = await common_api_commands.startScanningProcess(
-            client, args.chat, trackUsers=users, banned_usernames=exclude
+            client, args.chat, recursionDepth=args.recursion_depth, trackUsers=users, banned_usernames=exclude
         )
 
         if not allChannels:
@@ -90,9 +101,16 @@ async def main():
         for channel in allChannels:
             visuals.visualize_channel_record(channel)
             visuals.visualize_subchannels_tree(channel)
-
+    except Exception as e:
+        logging.error(f"An error occurred during execution: {e}")
+    finally:
+        await client.disconnect()
+        print("> Finished TeleSlaker")
 
 try:
     client.loop.run_until_complete(main())
 except KeyboardInterrupt:
     print("[!] Interrupted by user")
+except Exception as e:
+    logging.error(f"An error occurred: {e}")
+    
