@@ -55,7 +55,6 @@ async def startScanningProcess(
     if not recursionDepth:
         recursionDepth = MAX_DEPTH
 
-    print(recursionDepth)
     totalChannels: list[ChannelRecord] = []
     trackUsers = trackUsers or set()
     banned_usernames = banned_usernames or set()
@@ -79,7 +78,7 @@ async def startScanningProcess(
     if isinstance(chatObj, Channel) and not chatObj.megagroup:
         tqdm.write(f"[i] Scanning channel @{chatObj.username} ({chatObj.id})")
         channelInstance, _ = await channelScanRecursion(
-            client, chatObj, trackUsers=trackUsers, banned_usernames=banned_usernames
+            client, chatObj, trackUsers=trackUsers, banned_usernames=banned_usernames, max_depth=recursionDepth
         )
 
         if channelInstance:
@@ -104,6 +103,7 @@ async def startScanningProcess(
                 channelObj,
                 trackUsers=trackUsers,
                 banned_usernames=banned_usernames,
+                max_depth=recursionDepth
             )
 
             if channelInstance:

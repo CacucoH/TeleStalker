@@ -8,7 +8,6 @@ from tqdm.asyncio import tqdm
 from classes.channel import ChannelRecord
 from classes.user import UserRecord
 from common.common_api_commands import (
-    MAX_DEPTH,
     MAX_PARTICIPANTS_CHANNEL,
     Channel,
     getUsersByComments,
@@ -26,6 +25,7 @@ async def channelScanRecursion(
     trackUsers: set[str] = None,
     banned_usernames: set[str] = None,
     isBlocked: bool = False,
+    max_depth: int = 1
 ) -> list[ChannelRecord, bool]:
     """
     ## Рекурсивно сканирует подканалы и добавляет их пользователей в основной канал.
@@ -36,8 +36,8 @@ async def channelScanRecursion(
     channelInstance: ChannelRecord = None
     try:
         channelId = channelObj.id
-        if currentDepth > MAX_DEPTH:
-            message = f"[i] Max recursion depth reached. Skipping {channelId}: {currentDepth} > {MAX_DEPTH}"
+        if currentDepth > max_depth:
+            message = f"[i] Max recursion depth reached. Skipping {channelId}: {currentDepth} > {max_depth}"
             tqdm.write(message)
             logging.info(message)
             return None, False
@@ -48,7 +48,7 @@ async def channelScanRecursion(
             )
 
         if channelInstance.totalParticipants > MAX_PARTICIPANTS_CHANNEL:
-            message = f"[i] Skipping {channelInstance.title} ({channelInstance.usernamme}). Participants exceed maximum value {channelInstance.totalParticipants} > {MAX_DEPTH}"
+            message = f"[i] Skipping {channelInstance.title} ({channelInstance.usernamme}). Participants exceed maximum value {channelInstance.totalParticipants} > {max_depth}"
             tqdm.write(message)
             logging.info(message)
             return channelInstance

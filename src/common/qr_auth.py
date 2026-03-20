@@ -18,6 +18,7 @@ async def auth(client: telethon.TelegramClient):
     r = False
     while not r:
         gen_qr(qr_login.url)
+        print(qr_login.url)
         try:
             r = await qr_login.wait(10)
         except telethon.errors.rpcerrorlist.SessionPasswordNeededError:
