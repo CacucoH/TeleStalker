@@ -23,7 +23,7 @@ from classes.user import UserRecord
 load_dotenv("./config/.env")
 
 logger = logging.getLogger(__name__)
-MAX_DEPTH = int(os.getenv("MAX_DEPTH", 5))
+# MAX_DEPTH = int(os.getenv("MAX_DEPTH", 5))
 FLOOD_WAIT = float(
     os.getenv("SAFE_FLOOD_TIME", 1)
 )  # Время ожидания между запросами, по умолчанию 0.5 секунды
@@ -45,7 +45,7 @@ MAX_USERS_SCAN_ITERATIONS = int(os.getenv("MAX_USERS_SCAN_ITERATIONS", 5))
 async def startScanningProcess(
     client: TelegramClient,
     chatId: str | int,
-    recursionDepth: int | None = None,
+    recursionDepth: int,
     trackUsers: set[str] = None,
     banned_usernames: set[str] = None,
 ) -> list[ChannelRecord]:
@@ -53,11 +53,15 @@ async def startScanningProcess(
     from scan_modules.groups.group_scan import getChatUsers
 
     if not recursionDepth:
-        recursionDepth = MAX_DEPTH
+        recursionDepth = 1
 
     totalChannels: list[ChannelRecord] = []
-    trackUsers = trackUsers or set()
-    banned_usernames = banned_usernames or set()
+
+    if not trackUsers:
+        trackUsers = set()
+
+    if not banned_usernames:
+        banned_usernames = set()
 
     # We've got link
     try:
@@ -78,13 +82,17 @@ async def startScanningProcess(
     if isinstance(chatObj, Channel) and not chatObj.megagroup:
         tqdm.write(f"[i] Scanning channel @{chatObj.username} ({chatObj.id})")
         channelInstance, _ = await channelScanRecursion(
-            client, chatObj, trackUsers=trackUsers, banned_usernames=banned_usernames, max_depth=recursionDepth
+            client,
+            chatObj,
+            trackUsers=trackUsers,
+            banned_usernames=banned_usernames,
+            max_depth=recursionDepth,
         )
 
         if channelInstance:
             totalChannels.append(channelInstance)
 
-    # If chat is presented:
+    # If chat is present:
     # Scan chat for channels -> recursively scan all found channels
     elif isinstance(chatObj, Chat) or (isinstance(chatObj, Channel)):
         tqdm.write(f"[i] Scanning chat {chatObj.title} ({chatObj.id})")
@@ -95,6 +103,7 @@ async def startScanningProcess(
             trackUsers=trackUsers,
             banned_usernames=banned_usernames,
             supergroup=isSupergroup,
+            max_depth=recursionDepth,
         )
         for subchannelId in groupInstance.subchannels.values():
             channelObj = await client.get_entity(subchannelId)
@@ -103,7 +112,7 @@ async def startScanningProcess(
                 channelObj,
                 trackUsers=trackUsers,
                 banned_usernames=banned_usernames,
-                max_depth=recursionDepth
+                max_depth=recursionDepth,
             )
 
             if channelInstance:
@@ -203,7 +212,8 @@ async def getUsersByComments(
     client: TelegramClient,
     chatRecord: GroupRecord | ChannelRecord,
     targetUsers: set[str],
-    banned_usernames: set[str] = None,
+    max_depth: int,
+    banned_usernames: set[str],
     totalMessages: int = 0,
     participantsCount: int = 0,
 ) -> list[dict[UserRecord], dict[int, int]]:
@@ -223,21 +233,27 @@ async def getUsersByComments(
 
         async for message in tqdm(
             client.iter_messages(chatToScan, wait_time=FLOOD_WAIT, reverse=True),
-            total=totalMessages,
+            total=totalMessages
+            * 5,  # Because msg count is inaccurate and actual count x5 times bigger in avg
             desc="Scanning channel messages",
         ):
             if not message.sender:
                 continue
 
             res = await search(
-                message, client, thisChatId, chatRecord, banned_usernames, targetUsers
+                message=message,
+                client=client,
+                thisChatId=thisChatId,
+                chatRecord=chatRecord,
+                banned_usernames=banned_usernames,
+                targetUsers=targetUsers,
             )
             if not res:
                 continue
 
             user, senderUsername = res[0], res[1]
             tqdm.write(
-                f"[+] New user found: {user.full_name} (@{senderUsername or str(user.id)})"
+                f"[+] New user found: {user.full_name if user.full_name else 'Unknown'} (@{senderUsername or str(user.id)})"
             )
 
         tqdm.write(
@@ -261,6 +277,9 @@ async def search(
     originalPostId: int = None,
 ):
     sender = message.sender  # Optimized
+    if sender is None:
+        return None
+
     senderId: int = sender.id
     try:
         senderUsername: str = sender.username
@@ -273,7 +292,7 @@ async def search(
 
             # Dont waste API calls on deleted users
             logging.debug(f"[!] User @{senderId} is deleted? Skipping anyway...")
-            senderUsername = senderId
+            senderUsername = str(senderId)
 
             return None
 
@@ -312,12 +331,12 @@ async def search(
         return None
 
     user = UserRecord(sender)
-
-    # Check if the user has a channel; If so add them
-    subChannId = await get_channel_from_user(client, senderUsername, thisChatId)
-    if subChannId:
-        chatRecord.addSubChannel(senderUsername, subChannId)
-        user.adminInChannel.add(subChannId)
+    if senderUsername:
+        # Check if the user has a channel; If so add them
+        subChannId = await get_channel_from_user(client, senderUsername, thisChatId)
+        if subChannId:
+            chatRecord.addSubChannel(senderUsername, subChannId)
+            user.adminInChannel.add(subChannId)
 
     chatRecord.addUser(senderId, user)
     # elif isinstance(sender, Channel): # Admin found

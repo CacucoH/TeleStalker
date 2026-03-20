@@ -19,16 +19,16 @@ from common.local_commands import matchAdminsByNames
 async def channelScanRecursion(
     client: TelegramClient,
     channelObj: Channel,
+    max_depth: int,
+    trackUsers: set[str],
+    banned_usernames: set[str],
     currentDepth: int = 1,
     channelInstance: ChannelRecord | None = None,
     creatorId: int | None = None,
-    trackUsers: set[str] = None,
-    banned_usernames: set[str] = None,
     isBlocked: bool = False,
-    max_depth: int = 1
 ) -> list[ChannelRecord, bool]:
     """
-    ## Рекурсивно сканирует подканалы и добавляет их пользователей в основной канал.
+    ## Recursively scans a Telegram channel and its subchannels, gathering information about each channel and its members
     ### Returns:
     - A Channel instance (ChannelRecord)
     - Are you blocked by telegram API (bool)
@@ -44,14 +44,18 @@ async def channelScanRecursion(
 
         if not channelInstance:
             channelInstance: ChannelRecord = await getUsersFromChannelComments(
-                client, channelObj, trackUsers, banned_usernames
+                client=client,
+                channelObj=channelObj,
+                targetUsers=trackUsers,
+                banned_usernames=banned_usernames,
+                max_depth=max_depth,
             )
 
         if channelInstance.totalParticipants > MAX_PARTICIPANTS_CHANNEL:
             message = f"[i] Skipping {channelInstance.title} ({channelInstance.usernamme}). Participants exceed maximum value {channelInstance.totalParticipants} > {max_depth}"
             tqdm.write(message)
             logging.info(message)
-            return channelInstance
+            return channelInstance, False
 
         if creatorId:
             channelInstance.creatorName = creatorId
@@ -69,12 +73,18 @@ async def channelScanRecursion(
 
         if not channelInstance or not channelInstance.subchannels:
             tqdm.write(f"[i] No subchannels for @{channelInstance.usernamme} =(((")
-            return channelInstance
+            return channelInstance, False
 
         for username, subchannelId in channelInstance.subchannels.items():
             subChanObj: Channel = await client.get_entity(subchannelId)
             subtree, isBlocked = await channelScanRecursion(
-                client, subChanObj, currentDepth=currentDepth + 1, creatorId=username
+                client,
+                subChanObj,
+                currentDepth=currentDepth + 1,
+                creatorId=username,
+                trackUsers=trackUsers,
+                banned_usernames=banned_usernames,
+                max_depth=max_depth,
             )
             if subtree:
                 channelInstance.subchannels[username] = subtree
@@ -85,8 +95,8 @@ async def channelScanRecursion(
 
     except KeyboardInterrupt:
         tqdm.write("[!] Caught CTRL+C")
-    except Exception:
-        tqdm.write("[!] API requests exhausted")
+    except Exception as e:
+        tqdm.write(f"[!] API requests exhausted or something else happened: {e}")
         return channelInstance, True
     return channelInstance, isBlocked
 
@@ -95,6 +105,7 @@ async def getUsersFromChannelComments(
     client: TelegramClient,
     channelObj: Channel,
     targetUsers: set[str],
+    max_depth: int,
     banned_usernames: set[str] = None,
 ) -> list[UserRecord]:
     try:
@@ -112,6 +123,7 @@ async def getUsersFromChannelComments(
             banned_usernames=banned_usernames,
             totalMessages=channelInstance.totalMessages,
             participantsCount=channelInstance.totalParticipants,
+            max_depth=max_depth,
         )
 
     except Exception as e:

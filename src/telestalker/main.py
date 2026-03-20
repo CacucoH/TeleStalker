@@ -6,7 +6,7 @@ import os
 from telethon import TelegramClient
 
 from common import common_api_commands, qr_auth
-from common.local_commands import _prepareWorkspace  
+from common.local_commands import _prepareWorkspace
 from visuals import visuals
 
 _prepareWorkspace()
@@ -78,10 +78,9 @@ async def main():
     users = set()
     exclude = set()
 
-    users = []
     if args.users:
         users = set(args.users)
-
+    #
     if args.exclude:
         exclude = set(args.exclude)
 

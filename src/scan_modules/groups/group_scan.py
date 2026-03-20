@@ -20,6 +20,7 @@ from visuals.visuals import visualize_group_record
 async def getChatUsers(
     client: TelegramClient,
     chatObj: Chat,
+    max_depth: int,
     trackUsers: set[str] = None,
     banned_usernames: set[str] = None,
     supergroup=False,
@@ -38,6 +39,7 @@ async def getChatUsers(
                 trackUsers,
                 banned_usernames,
                 participantsCount=groupInstance.totalParticipants,
+                max_depth=max_depth,
             )
         else:
             groupInstance = await scanUsersFromSupergroup(client, groupInstance)
