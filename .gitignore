@@ -1,6 +1,6 @@
-logs
+log.log
 research
-session/
+*.session
 **__pycache__**
 reports
 **/.env
